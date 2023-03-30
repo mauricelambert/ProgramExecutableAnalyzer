@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -1237,15 +1237,26 @@ with open(argv[1], "rb") as file:
             name = "Manifest"
         else:
             name = name.replace(b"\0", b"0")
-        print(
-            f"Entry {name} ({name_int})".ljust(25),
+        vprint(
+            f"Entry offset".ljust(25),
             f"{position:0>8x}-{position+8:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
-            "Offset:",
             offset_int,
-            "; type:",
+        )
+        vprint(
+            f"Entry type".ljust(25),
+            f"{position:0>8x}-{position+8:0>8x}".ljust(20),
+            hexlify(data).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             type_int,
+        )
+        print(
+            f"Entry {name}".ljust(25),
+            f"{position:0>8x}-{position+8:0>8x}".ljust(20),
+            hexlify(data).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in data).ljust(20),
+            name_int,
         )
         position += 8
         return type_int, offset_int
@@ -1357,21 +1368,32 @@ with open(argv[1], "rb") as file:
         codepage = int.from_bytes(codepage, "little")
         offset = int.from_bytes(offset, "little")
         size = int.from_bytes(size, "little")
-        print(
-            f"Entry data".ljust(25),
+        vprint(
+            f"Entry Offset".ljust(25),
             f"{position:0>8x}-{position+16:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
-            "Offset:",
             offset,
-            "; Size:",
+        )
+        print(
+            f"Entry Size".ljust(25),
+            f"{position:0>8x}-{position+16:0>8x}".ljust(20),
+            hexlify(data).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             size,
-            "; CodePage:",
+        )
+        vprint(
+            f"Entry CodePage".ljust(25),
+            f"{position:0>8x}-{position+16:0>8x}".ljust(20),
+            hexlify(data).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             codepage,
         )
         if offset == 16:
             return read_data_entry()
         position = data_position + (offset - rsrc_virtual_address)
+        if position <= 0:
+            return
         file.seek(position)
         if last_object == 24:
             string = b""
@@ -2579,15 +2601,16 @@ with open(argv[1], "rb") as file:
         )
         position += 16
         for entry in range(named_entries + id_entries):
-            file.seek(position)
-            type_int, offset = read_base_entry()
-            if offset:
-                position = data_position + offset
+            if position > 0:
                 file.seek(position)
-                if type_int:
-                    read_resources_headers()
-                else:
-                    read_data_entry()
+                type_int, offset = read_base_entry()
+                if offset:
+                    position = data_position + offset
+                    file.seek(position)
+                    if type_int:
+                        read_resources_headers()
+                    else:
+                        read_data_entry()
             if main:
                 position = data_position + 16 + 8 * (entry + 1)
                 last_object = None

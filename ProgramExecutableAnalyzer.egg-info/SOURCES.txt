@@ -1,3 +1,5 @@
+LICENSE.txt
+MANIFEST.in
 ProgramExecutableAnalyzer.py
 README.md
 setup.py
