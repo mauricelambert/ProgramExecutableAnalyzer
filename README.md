@@ -23,7 +23,7 @@ This tool is useful for malware analysis or debug/understand compiled dependenci
 ## Installation
 
 ```bash
-git clone https://github.com/mauricelambert/ProgramExecutableAnalyzer.git
+pip install ProgramExecutableAnalyzer
 ```
 
 ## Usages
