@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -1039,6 +1039,10 @@ with open(argv[1], "rb") as file:
         )
         if i == 2:
             rva_resource = int.from_bytes(rva, "little")
+            temp_position = file.tell()
+            file.seek(rva_resource)
+            data_position = int.from_bytes(file.read(4), 'little')
+            file.seek(temp_position)
         elif i == 0:
             rva_export = int.from_bytes(rva, "little")
             size_export = int.from_bytes(size, "little")
@@ -1175,7 +1179,6 @@ with open(argv[1], "rb") as file:
         # file.seek(data_position)
         # data = file.read(data_size)
         # file.seek(saved_position)
-    print("\n", f"{' Resources ':*^139}", "\n", sep="")
     # saved_position = file.tell()
     position = data_position
     last_object = None
@@ -2615,7 +2618,9 @@ with open(argv[1], "rb") as file:
                 position = data_position + 16 + 8 * (entry + 1)
                 last_object = None
 
-    read_resources_headers(True)
+    if position < filesize:
+        print("\n", f"{' Resources ':*^139}", "\n", sep="")
+        read_resources_headers(True)
     if rva_export and size_export:
         print("\n", f"{' Functions exported ':*^139}", "\n", sep="")
         position = rva_export - export_virtual_address + export_data_position

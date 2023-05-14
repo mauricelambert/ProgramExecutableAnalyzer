@@ -2,6 +2,7 @@ LICENSE.txt
 MANIFEST.in
 ProgramExecutableAnalyzer.py
 README.md
+setup.cfg
 setup.py
 ProgramExecutableAnalyzer.egg-info/PKG-INFO
 ProgramExecutableAnalyzer.egg-info/SOURCES.txt
