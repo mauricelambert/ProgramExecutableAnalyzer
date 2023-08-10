@@ -29,10 +29,10 @@ pip install ProgramExecutableAnalyzer
 ## Usages
 
 ```bash
-ProgramExecutableAnalyzer.py -h
-ProgramExecutableAnalyzer.py executable.exe
-ProgramExecutableAnalyzer.py -c executable.exe  # No color
-ProgramExecutableAnalyzer.py -v executable.exe  # Verbose mode
+python3 ProgramExecutableAnalyzer.py -h
+python3 ProgramExecutableAnalyzer.py executable.exe
+python3 ProgramExecutableAnalyzer.py -c executable.exe  # No color
+python3 ProgramExecutableAnalyzer.py -v executable.exe  # Verbose mode
 ```
 
 ## Screenshots
@@ -45,7 +45,6 @@ ProgramExecutableAnalyzer.py -v executable.exe  # Verbose mode
 
  - [Github Page](https://github.com/mauricelambert/ProgramExecutableAnalyzer/)
  - [Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.pyz)
- - [Pypi package](https://pypi.org/project/ProgramExecutableAnalyzer/)
 
 ## Licence
 

@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -1264,39 +1264,38 @@ with open(argv[1], "rb") as file:
         position += 8
         return type_int, offset_int
 
-    def get_attribute():
+    def get_attribute(char = None):
         global position, entryend
         entryposition = position
-        char = file.read(1)
+        char = char or file.read(1)
         while char == b"\0":
             char = file.read(1)
             position += 1
-        length = char + file.read(1)
-        valuelength = file.read(2)
-        type_ = file.read(2)
-        data = length + valuelength + type_
-        length = int.from_bytes(length, "little")
-        valuelength = int.from_bytes(valuelength, "little")
-        type_ = int.from_bytes(type_, "little")
+        data_length = char + file.read(1)
+        data_valuelength = file.read(2)
+        data_type = file.read(2)
+        length = int.from_bytes(data_length, "little")
+        valuelength = int.from_bytes(data_valuelength, "little")
+        type_ = int.from_bytes(data_type, "little")
         vprint(
             "String length".ljust(25),
-            f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-            hexlify(data).decode().ljust(40),
-            "".join(chr(x) if x in printable else "." for x in data).ljust(20),
+            f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+            hexlify(data_length).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in data_length).ljust(20),
             length,
         )
         vprint(
             "String value length".ljust(25),
-            f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-            hexlify(data).decode().ljust(40),
-            "".join(chr(x) if x in printable else "." for x in data).ljust(20),
+            f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
+            hexlify(data_valuelength).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(20),
             valuelength,
         )
         vprint(
             "String type".ljust(25),
-            f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-            hexlify(data).decode().ljust(40),
-            "".join(chr(x) if x in printable else "." for x in data).ljust(20),
+            f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
+            hexlify(data_type).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in data_type).ljust(20),
             type_,
         )
         position += 6
@@ -1331,32 +1330,34 @@ with open(argv[1], "rb") as file:
             char = file.read(1)
             position += 1
             start_string_position = position
-        precedent_char = char
-        string = char
-        char = file.read(1)
-        position += 1
-        while (
-            char != b"\0" or precedent_char != b"\0"
-        ) and position < entryend:
-            string += char
+        if valuelength > 1:
             precedent_char = char
+            string = char
             char = file.read(1)
             position += 1
-        string = string.replace(b"\0", b"")
-        if len(string) <= 20:
-            data = hexlify(string).decode().ljust(40)
-        else:
-            data = "\b"
-        print(
-            "Attribute value".ljust(25),
-            f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
-            data,
-            "".join(chr(x) if x in printable else "." for x in string).ljust(
-                20
-            ),
-        )
+            while (
+                char != b"\0" or precedent_char != b"\0"
+            ) and position < entryend:
+                string += char
+                precedent_char = char
+                char = file.read(1)
+                position += 1
+            string = string.replace(b"\0", b"")
+            if len(string) <= 20:
+                data = hexlify(string).decode().ljust(40)
+            else:
+                data = "\b"
+            print(
+                "Attribute value".ljust(25),
+                f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
+                data,
+                "".join(chr(x) if x in printable else "." for x in string).ljust(
+                    20
+                ),
+            )
+            char = None
         if entryend > position + 10:
-            get_attribute()
+            get_attribute(char)
         else:
             file.seek(entryend)
             position = entryend
@@ -1414,40 +1415,39 @@ with open(argv[1], "rb") as file:
             )
         elif last_object == 16:
             end_position = size + position
-            length = file.read(2)
-            valuelength = file.read(2)
-            type_ = file.read(2)
-            data = length + valuelength + type_
-            length = int.from_bytes(length, "little")
-            valuelength = int.from_bytes(valuelength, "little")
-            type_ = int.from_bytes(type_, "little")
+            value_length = file.read(2)
+            value_valuelength = file.read(2)
+            value_type = file.read(2)
+            length = int.from_bytes(value_length, "little")
+            valuelength = int.from_bytes(value_valuelength, "little")
+            type_ = int.from_bytes(value_type, "little")
             key = file.read(30).replace(b"\0", b"")
             print(
                 "\n", f"{' Version start - In resources ':*^139}", "\n", sep=""
             )
             vprint(
                 "Version length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+                hexlify(value_length).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in value_length).ljust(
                     20
                 ),
                 length,
             )
             vprint(
                 "Version value length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
+                hexlify(value_valuelength).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in value_valuelength).ljust(
                     20
                 ),
                 valuelength,
             )
             vprint(
                 "Version type".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
+                hexlify(value_type).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in value_type).ljust(
                     20
                 ),
                 type_,
@@ -1702,661 +1702,840 @@ with open(argv[1], "rb") as file:
             while char == b"\0":
                 char = file.read(1)
                 position += 1
-            length = char + file.read(1)
-            valuelength = file.read(2)
-            type_ = file.read(2)
-            data = length + valuelength + type_
-            length = int.from_bytes(length, "little")
-            valuelength = int.from_bytes(valuelength, "little")
-            type_ = int.from_bytes(type_, "little")
+            data_length = char + file.read(1)
+            data_valuelength = file.read(2)
+            data_type = file.read(2)
+            length = int.from_bytes(data_length, "little")
+            valuelength = int.from_bytes(data_valuelength, "little")
+            type_ = int.from_bytes(data_type, "little")
             vprint(
                 "Version length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+                hexlify(data_length).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in data_length).ljust(
                     20
                 ),
                 length,
             )
             vprint(
                 "Version value length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
+                hexlify(data_valuelength).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
                     20
                 ),
                 valuelength,
             )
             vprint(
                 "Version type".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
+                hexlify(data_type).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in data_type).ljust(
                     20
                 ),
                 type_,
             )
-            data = file.read(28).replace(b"\0", b"")
-            print(
-                "Version child key".ljust(25),
-                f"{position+6:0>8x}-{position+34:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-            )
-            position += 34
+            position += 6
+            string = b""
+            start_string_position = position
+            precedent_char = b"\0"
             char = file.read(1)
-            while char == b"\0":
+            position += 1
+            while char != b"\0" or precedent_char != b"\0":
+                string += char
+                precedent_char = char
                 char = file.read(1)
                 position += 1
-            length = char + file.read(1)
-            valuelength = file.read(2)
-            type_ = file.read(2)
-            data = length + valuelength + type_
-            entrylength = length = int.from_bytes(length, "little")
-            valuelength = int.from_bytes(valuelength, "little")
-            type_ = int.from_bytes(type_, "little")
-            vprint(
-                "String length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-                length,
-            )
-            vprint(
-                "String value length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-                valuelength,
-            )
-            vprint(
-                "String type".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-                type_,
-            )
-            data = file.read(8)
-            language = data.replace(b"\0", b"").decode()
-            languages = {
-                "000B": "fi",
-                "000C": "fr",
-                "000D": "he",
-                "000E": "hu",
-                "000F": "is",
-                "0010": "it",
-                "0011": "ja",
-                "0012": "ko",
-                "0013": "nl",
-                "0014": "no",
-                "0015": "pl",
-                "0016": "pt",
-                "0017": "rm",
-                "0018": "ro",
-                "0019": "ru",
-                "001A": "hr",
-                "001B": "sk",
-                "001C": "sq",
-                "001D": "sv",
-                "001E": "th",
-                "001F": "tr",
-                "0020": "ur",
-                "0021": "id",
-                "0022": "uk",
-                "0023": "be",
-                "0024": "sl",
-                "0025": "et",
-                "0026": "lv",
-                "0027": "lt",
-                "0028": "tg",
-                "0029": "fa",
-                "002A": "vi",
-                "002B": "hy",
-                "002C": "az",
-                "002D": "eu",
-                "002E": "hsb",
-                "002F": "mk",
-                "0030": "st",
-                "0031": "ts",
-                "0032": "tn",
-                "0033": "ve",
-                "0034": "xh",
-                "0035": "zu",
-                "0036": "af",
-                "0037": "ka",
-                "0038": "fo",
-                "0039": "hi",
-                "003A": "mt",
-                "003B": "se",
-                "003C": "ga",
-                "003D": "yi, reserved",
-                "003E": "ms",
-                "003F": "kk",
-                "0040": "ky",
-                "0041": "sw",
-                "0042": "tk",
-                "0043": "uz",
-                "0044": "tt",
-                "0045": "bn",
-                "0046": "pa",
-                "0047": "gu",
-                "0048": "or",
-                "0049": "ta",
-                "004A": "te",
-                "004B": "kn",
-                "004C": "ml",
-                "004D": "as",
-                "004E": "mr",
-                "004F": "sa",
-                "0050": "mn",
-                "0051": "bo",
-                "0052": "cy",
-                "0053": "km",
-                "0054": "lo",
-                "0055": "my",
-                "0056": "gl",
-                "0057": "kok",
-                "0058": "mni, reserved",
-                "0059": "sd",
-                "005A": "syr",
-                "005B": "si",
-                "005C": "chr",
-                "005D": "iu",
-                "005E": "am",
-                "005F": "tzm",
-                "0060": "ks",
-                "0061": "ne",
-                "0062": "fy",
-                "0063": "ps",
-                "0064": "fil",
-                "0065": "dv",
-                "0066": "bin, reserved",
-                "0067": "ff",
-                "0068": "ha",
-                "0069": "ibb, reserved",
-                "006A": "yo",
-                "006B": "quz",
-                "006C": "nso",
-                "006D": "ba",
-                "006E": "lb",
-                "006F": "kl",
-                "0070": "ig",
-                "0071": "kr, reserved",
-                "0072": "om",
-                "0073": "ti",
-                "0074": "gn",
-                "0075": "haw",
-                "0076": "la, reserved",
-                "0077": "so, reserved",
-                "0078": "ii",
-                "0079": "pap, reserved",
-                "007A": "arn",
-                "007B": "Neither defined nor reserved",
-                "007C": "moh",
-                "007D": "Neither defined nor reserved",
-                "007E": "br",
-                "007F": "Reserved for invariant locale behavior",
-                "0080": "ug",
-                "0081": "mi",
-                "0082": "oc",
-                "0083": "co",
-                "0084": "gsw",
-                "0085": "sah",
-                "0086": "qut",
-                "0087": "rw",
-                "0088": "wo",
-                "0089": "Neither defined nor reserved",
-                "008A": "Neither defined nor reserved",
-                "008B": "Neither defined nor reserved",
-                "008C": "prs",
-                "008D": "Neither defined nor reserved",
-                "008E": "Neither defined nor reserved",
-                "008F": "Neither defined nor reserved",
-                "0090": "Neither defined nor reserved",
-                "0091": "gd",
-                "0092": "ku",
-                "0093": "quc, reserved",
-                "0401": "ar-SA",
-                "0402": "bg-BG",
-                "0403": "ca-ES",
-                "0404": "zh-TW",
-                "0405": "cs-CZ",
-                "0406": "da-DK",
-                "0407": "de-DE",
-                "0408": "el-GR",
-                "0409": "en-US",
-                "040A": "es-ES_tradnl",
-                "040B": "fi-FI",
-                "040C": "fr-FR",
-                "040D": "he-IL",
-                "040E": "hu-HU",
-                "040F": "is-IS",
-                "0410": "it-IT",
-                "0411": "ja-JP",
-                "0412": "ko-KR",
-                "0413": "nl-NL",
-                "0414": "nb-NO",
-                "0415": "pl-PL",
-                "0416": "pt-BR",
-                "0417": "rm-CH",
-                "0418": "ro-RO",
-                "0419": "ru-RU",
-                "041A": "hr-HR",
-                "041B": "sk-SK",
-                "041C": "sq-AL",
-                "041D": "sv-SE",
-                "041E": "th-TH",
-                "041F": "tr-TR",
-                "0420": "ur-PK",
-                "0421": "id-ID",
-                "0422": "uk-UA",
-                "0423": "be-BY",
-                "0424": "sl-SI",
-                "0425": "et-EE",
-                "0426": "lv-LV",
-                "0427": "lt-LT",
-                "0428": "tg-Cyrl-TJ",
-                "0429": "fa-IR",
-                "042A": "vi-VN",
-                "042B": "hy-AM",
-                "042C": "az-Latn-AZ",
-                "042D": "eu-ES",
-                "042E": "hsb-DE",
-                "042F": "mk-MK",
-                "0430": "st-ZA",
-                "0431": "ts-ZA",
-                "0432": "tn-ZA",
-                "0433": "ve-ZA",
-                "0434": "xh-ZA",
-                "0435": "zu-ZA",
-                "0436": "af-ZA",
-                "0437": "ka-GE",
-                "0438": "fo-FO",
-                "0439": "hi-IN",
-                "043A": "mt-MT",
-                "043B": "se-NO",
-                "043D": "yi-001",
-                "043E": "ms-MY",
-                "043F": "kk-KZ",
-                "0440": "ky-KG",
-                "0441": "sw-KE",
-                "0442": "tk-TM",
-                "0443": "uz-Latn-UZ",
-                "0444": "tt-RU",
-                "0445": "bn-IN",
-                "0446": "pa-IN",
-                "0447": "gu-IN",
-                "0448": "or-IN",
-                "0449": "ta-IN",
-                "044A": "te-IN",
-                "044B": "kn-IN",
-                "044C": "ml-IN",
-                "044D": "as-IN",
-                "044E": "mr-IN",
-                "044F": "sa-IN",
-                "0450": "mn-MN",
-                "0451": "bo-CN",
-                "0452": "cy-GB",
-                "0453": "km-KH",
-                "0454": "lo-LA",
-                "0455": "my-MM",
-                "0456": "gl-ES",
-                "0457": "kok-IN",
-                "0458": "mni-IN, reserved",
-                "0459": "sd-Deva-IN, reserved",
-                "045A": "syr-SY",
-                "045B": "si-LK",
-                "045C": "chr-Cher-US",
-                "045D": "iu-Cans-CA",
-                "045E": "am-ET",
-                "045F": "tzm-Arab-MA",
-                "0460": "ks-Arab",
-                "0461": "ne-NP",
-                "0462": "fy-NL",
-                "0463": "ps-AF",
-                "0464": "fil-PH",
-                "0465": "dv-MV",
-                "0466": "bin-NG, reserved",
-                "0467": "ff-NG, ff-Latn-NG",
-                "0468": "ha-Latn-NG",
-                "0469": "ibb-NG, reserved",
-                "046A": "yo-NG",
-                "046B": "quz-BO",
-                "046C": "nso-ZA",
-                "046D": "ba-RU",
-                "046E": "lb-LU",
-                "046F": "kl-GL",
-                "0470": "ig-NG",
-                "0471": "kr-Latn-NG",
-                "0472": "om-ET",
-                "0473": "ti-ET",
-                "0474": "gn-PY",
-                "0475": "haw-US",
-                "0476": "la-VA",
-                "0477": "so-SO",
-                "0478": "ii-CN",
-                "0479": "pap-029, reserved",
-                "047A": "arn-CL",
-                "047C": "moh-CA",
-                "047E": "br-FR",
-                "0480": "ug-CN",
-                "0481": "mi-NZ",
-                "0482": "oc-FR",
-                "0483": "co-FR",
-                "0484": "gsw-FR",
-                "0485": "sah-RU",
-                "0486": "qut-GT, reserved",
-                "0487": "rw-RW",
-                "0488": "wo-SN",
-                "048C": "prs-AF",
-                "048D": "plt-MG, reserved",
-                "048E": "zh-yue-HK, reserved",
-                "048F": "tdd-Tale-CN, reserved",
-                "0490": "khb-Talu-CN, reserved",
-                "0491": "gd-GB",
-                "0492": "ku-Arab-IQ",
-                "0493": "quc-CO, reserved",
-                "0501": "qps-ploc",
-                "05FE": "qps-ploca",
-                "0801": "ar-IQ",
-                "0803": "ca-ES-valencia",
-                "0804": "zh-CN",
-                "0807": "de-CH",
-                "0809": "en-GB",
-                "080A": "es-MX",
-                "080C": "fr-BE",
-                "0810": "it-CH",
-                "0811": "ja-Ploc-JP, reserved",
-                "0813": "nl-BE",
-                "0814": "nn-NO",
-                "0816": "pt-PT",
-                "0818": "ro-MD",
-                "0819": "ru-MD",
-                "081A": "sr-Latn-CS",
-                "081D": "sv-FI",
-                "0820": "ur-IN",
-                "0827": "Neither defined nor reserved",
-                "082C": "az-Cyrl-AZ, reserved",
-                "082E": "dsb-DE",
-                "0832": "tn-BW",
-                "083B": "se-SE",
-                "083C": "ga-IE",
-                "083E": "ms-BN",
-                "083F": "kk-Latn-KZ, reserved",
-                "0843": "uz-Cyrl-UZ, reserved",
-                "0845": "bn-BD",
-                "0846": "pa-Arab-PK",
-                "0849": "ta-LK",
-                "0850": "mn-Mong-CN, reserved",
-                "0851": "bo-BT, reserved",
-                "0859": "sd-Arab-PK",
-                "085D": "iu-Latn-CA",
-                "085F": "tzm-Latn-DZ",
-                "0860": "ks-Deva-IN",
-                "0861": "ne-IN",
-                "0867": "ff-Latn-SN",
-                "086B": "quz-EC",
-                "0873": "ti-ER",
-                "09FF": "qps-plocm",
-                "0C00": "Locale without assigned LCID if the current user default locale. See section 2.2.1.",
-                "0C01": "ar-EG",
-                "0C04": "zh-HK",
-                "0C07": "de-AT",
-                "0C09": "en-AU",
-                "0C0A": "es-ES",
-                "0C0C": "fr-CA",
-                "0C1A": "sr-Cyrl-CS",
-                "0C3B": "se-FI",
-                "0C50": "mn-Mong-MN",
-                "0C51": "dz-BT",
-                "0C5F": "tmz-MA, reserved",
-                "0C6b": "quz-PE",
-                "1000": "Locale without assigned LCID if the current user default locale. See section 2.2.1.",
-                "1001": "ar-LY",
-                "1004": "zh-SG",
-                "1007": "de-LU",
-                "1009": "en-CA",
-                "100A": "es-GT",
-                "100C": "fr-CH",
-                "101A": "hr-BA",
-                "103B": "smj-NO",
-                "105F": "tzm-Tfng-MA",
-                "1401": "ar-DZ",
-                "1404": "zh-MO",
-                "1407": "de-LI",
-                "1409": "en-NZ",
-                "140A": "es-CR",
-                "140C": "fr-LU",
-                "141A": "bs-Latn-BA",
-                "143B": "smj-SE",
-                "1801": "ar-MA",
-                "1809": "en-IE",
-                "180A": "es-PA",
-                "180C": "fr-MC",
-                "181A": "sr-Latn-BA",
-                "183B": "sma-NO",
-                "1C01": "ar-TN",
-                "1C09": "en-ZA",
-                "1C0A": "es-DO",
-                "1C0C": "fr-029",
-                "1C1A": "sr-Cyrl-BA",
-                "1C3B": "sma-SE",
-                "2001": "ar-OM",
-                "2008": "Neither defined nor reserved",
-                "2009": "en-JM",
-                "200A": "es-VE",
-                "200C": "fr-RE",
-                "201A": "bs-Cyrl-BA",
-                "203B": "sms-FI",
-                "2401": "ar-YE",
-                "2409": "en-029, reserved",
-                "240A": "es-CO",
-                "240C": "fr-CD",
-                "241A": "sr-Latn-RS",
-                "243B": "smn-FI",
-                "2801": "ar-SY",
-                "2809": "en-BZ",
-                "280A": "es-PE",
-                "280C": "fr-SN",
-                "281A": "sr-Cyrl-RS",
-                "2C01": "ar-JO",
-                "2C09": "en-TT",
-                "2C0A": "es-AR",
-                "2C0C": "fr-CM",
-                "2C1A": "sr-Latn-ME",
-                "3000": (
-                    "Unassigned LCID locale temporarily assigned"
-                    " to LCID 0x3000. See section 2.2.1."
-                ),
-                "3001": "ar-LB",
-                "3009": "en-ZW",
-                "300A": "es-EC",
-                "300C": "fr-CI",
-                "301A": "sr-Cyrl-ME",
-                "3400": (
-                    "Unassigned LCID locale temporarily "
-                    "assigned to LCID 0x3400. See section 2.2.1."
-                ),
-                "3401": "ar-KW",
-                "3409": "en-PH",
-                "340A": "es-CL",
-                "340C": "fr-ML",
-                "3800": (
-                    "Unassigned LCID locale temporarily "
-                    "assigned to LCID 0x3800. See section 2.2.1."
-                ),
-                "3801": "ar-AE",
-                "3809": "en-ID, reserved",
-                "380A": "es-UY",
-                "380C": "fr-MA",
-                "3C00": (
-                    "Unassigned LCID locale temporarily assigned"
-                    " to LCID 0x3C00. See section 2.2.1."
-                ),
-                "3C01": "ar-BH",
-                "3C09": "en-HK",
-                "3C0A": "es-PY",
-                "3C0C": "fr-HT",
-                "4000": (
-                    "Unassigned LCID locale temporarily "
-                    "assigned to LCID 0x4000. See section 2.2.1."
-                ),
-                "4001": "ar-QA",
-                "4009": "en-IN",
-                "400A": "es-BO",
-                "4400": (
-                    "Unassigned LCID locale temporarily "
-                    "assigned to LCID 0x4400. See section 2.2.1."
-                ),
-                "4401": "ar-Ploc-SA, reserved",
-                "4409": "en-MY",
-                "440A": "es-SV",
-                "4800": (
-                    "Unassigned LCID locale temporarily assigned"
-                    " to LCID 0x4800. See section 2.2.1."
-                ),
-                "4801": "ar-145, reserved",
-                "4809": "en-SG",
-                "480A": "es-HN",
-                "4C00": (
-                    "Unassigned LCID locale temporarily"
-                    " assigned to LCID 0x4C00. See section 2.2.1."
-                ),
-                "4C09": "en-AE",
-                "4C0A": "es-NI",
-                "5009": "en-BH, reserved",
-                "500A": "es-PR",
-                "5409": "en-EG, reserved",
-                "540A": "es-US",
-                "5809": "en-JO, reserved",
-                "580A": "es-419, reserved",
-                "5C09": "en-KW, reserved",
-                "5C0A": "es-CU",
-                "6009": "en-TR, reserved",
-                "6409": "en-YE, reserved",
-                "641A": "bs-Cyrl",
-                "681A": "bs-Latn",
-                "6C1A": "sr-Cyrl",
-                "701A": "sr-Latn",
-                "703B": "smn",
-                "742C": "az-Cyrl",
-                "743B": "sms",
-                "7804": "zh",
-                "7814": "nn",
-                "781A": "bs",
-                "782C": "az-Latn",
-                "783B": "sma",
-                "783F": "kk-Cyrl, reserved",
-                "7843": "uz-Cyrl",
-                "7850": "mn-Cyrl",
-                "785D": "iu-Cans",
-                "785F": "tzm-Tfng",
-                "7C04": "zh-Hant",
-                "7C14": "nb",
-                "7C1A": "sr",
-                "7C28": "tg-Cyrl",
-                "7C2E": "dsb",
-                "7C3B": "smj",
-                "7C3F": "kk-Latn, reserved",
-                "7C43": "uz-Latn",
-                "7C46": "pa-Arab",
-                "7C50": "mn-Mong",
-                "7C59": "sd-Arab",
-                "7C5C": "chr-Cher",
-                "7C5D": "iu-Latn",
-                "7C5F": "tzm-Latn",
-                "7C67": "ff-Latn",
-                "7C68": "ha-Latn",
-                "7C92": "ku-Arab",
-                "F2EE": "reserved",
-                "E40C": "fr-015, reserved",
-                "EEEE": "reserved",
-            }
-            language = languages.get(language, "Invalid")
-            sublanguage = file.read(8)
-            data += sublanguage
-            if sublanguage == b"0\x004\x00B\x000\x00":
-                sublanguage = "Unicode"
-            elif sublanguage == b"0\x000\x000\x000\x00":
-                sublanguage = "7-bit ASCII"
-            elif sublanguage == b"0\x003\x00A\x004\x00":
-                sublanguage = "Japan (Shift ? JIS X-0208)"
-            elif sublanguage == b"0\x003\x00B\x005\x00":
-                sublanguage = "Korea (Shift ? KSC 5601)"
-            elif sublanguage == b"0\x003\x00B\x006\x00":
-                sublanguage = "Taiwan (Big5)"
-            elif sublanguage == b"0\x004\x00E\x002\x00":
-                sublanguage = "Latin-2 (Eastern European)"
-            elif sublanguage == b"0\x004\x00E\x003\x00":
-                sublanguage = "Cyrillic"
-            elif sublanguage == b"0\x004\x00E\x004\x00":
-                sublanguage = "Multilingual"
-            elif sublanguage == b"0\x004\x00E\x005\x00":
-                sublanguage = "Greek"
-            elif sublanguage == b"0\x004\x00E\x006\x00":
-                sublanguage = "Turkish"
-            elif sublanguage == b"0\x004\x00E\x007\x00":
-                sublanguage = "Hebrew"
-            elif sublanguage == b"0\x004\x00E\x008\x00":
-                sublanguage = "Arabic"
+            string = string.replace(b"\0", b"")
+            if len(string) <= 20:
+                data = hexlify(string).decode().ljust(40)
             else:
-                sublanguage = "Unknown"
+                data = "\b"
             print(
-                "Language".ljust(25),
-                f"{position+6:0>8x}-{position+22:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                "Version child key".ljust(25),
+                f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
+                data,
+                "".join(chr(x) if x in printable else "." for x in string).ljust(
                     20
                 ),
-                language,
-                ";",
-                sublanguage,
             )
-            entryend = position + entrylength
-            position += 22
-            get_attribute()
+            def read_VarFileInfo():
+                global position
+                char = file.read(1)
+                while char == "\0":
+                    position += 1
+                    char = file.read(1)
+                data_length = char + file.read(1)
+                data_valuelength = file.read(2)
+                data_type = file.read(2)
+                length = int.from_bytes(data_length, "little")
+                valuelength = int.from_bytes(data_valuelength, "little")
+                type_ = int.from_bytes(data_type, "little")
+                vprint(
+                    "String length".ljust(25),
+                    f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+                    hexlify(data_length).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data_length).ljust(
+                        20
+                    ),
+                    length,
+                )
+                vprint(
+                    "String value length".ljust(25),
+                    f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
+                    hexlify(data_valuelength).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
+                        20
+                    ),
+                    valuelength,
+                )
+                vprint(
+                    "String type".ljust(25),
+                    f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
+                    hexlify(data_type).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data_type).ljust(
+                        20
+                    ),
+                    type_,
+                )
+                position += 6
+                char = file.read(1)
+                position += 1
+                while char == b"\0":
+                    char = file.read(1)
+                    position += 1
+                    start_string_position = position
+                precedent_char = char
+                string = char
+                char = file.read(1)
+                position += 1
+                while char != b"\0" or precedent_char != b"\0":
+                    string += char
+                    precedent_char = char
+                    char = file.read(1)
+                    position += 1
+                string = string.replace(b"\0", b"")
+                if len(string) <= 20:
+                    data = hexlify(string).decode().ljust(40)
+                else:
+                    data = "\b"
+                print(
+                    "Attribute name".ljust(25),
+                    f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
+                    data,
+                    "".join(
+                        chr(x) if x in printable else "." for x in string
+                    ).ljust(20),
+                )
+                char = file.read(3)
+                position += 3
+                # while char == b"\0":
+                #     char = file.read(1)
+                #     position += 1
+                language = file.read(2)
+                charset = file.read(2)
+                data = language + charset
+                languages = {
+                    0x0401: "Arabic",
+                    0x0415: "Polish",
+                    0x0402: "Bulgarian",
+                    0x0416: "Portuguese (Brazil)",
+                    0x0403: "Catalan",
+                    0x0417: "Rhaeto-Romanic",
+                    0x0404: "Traditional Chinese",
+                    0x0418: "Romanian",
+                    0x0405: "Czech",
+                    0x0419: "Russian",
+                    0x0406: "Danish",
+                    0x041A: "Croato-Serbian (Latin)",
+                    0x0407: "German",
+                    0x041B: "Slovak",
+                    0x0408: "Greek",
+                    0x041C: "Albanian",
+                    0x0409: "U.S. English",
+                    0x041D: "Swedish",
+                    0x040A: "Castilian Spanish",
+                    0x041E: "Thai",
+                    0x040B: "Finnish",
+                    0x041F: "Turkish",
+                    0x040C: "French",
+                    0x0420: "Urdu",
+                    0x040D: "Hebrew",
+                    0x0421: "Bahasa",
+                    0x040E: "Hungarian",
+                    0x0804: "Simplified Chinese",
+                    0x040F: "Icelandic",
+                    0x0807: "Swiss German",
+                    0x0410: "Italian",
+                    0x0809: "U.K. English",
+                    0x0411: "Japanese",
+                    0x080A: "Spanish (Mexico)",
+                    0x0412: "Korean",
+                    0x080C: "Belgian French",
+                    0x0413: "Dutch",
+                    0x0C0C: "Canadian French",
+                    0x0414: "Norwegian – Bokmal",
+                    0x100C: "Swiss French",
+                    0x0810: "Swiss Italian",
+                    0x0816: "Portuguese (Portugal)",
+                    0x0813: "Belgian Dutch",
+                    0x081A: "Serbo-Croatian (Cyrillic)",
+                    0x0814: "Norwegian – Nynorsk",
+                }
+                language = languages.get(
+                    int.from_bytes(language, "little"), "Unknown language"
+                )
+                charset = int.from_bytes(charset, "little")
+                if charset == 0:
+                    charset = "7-bit ASCII"
+                elif charset == 932:
+                    charset = "Japan (Shift – JIS X-0208)"
+                elif charset == 949:
+                    charset = "Korea (Shift – KSC 5601)"
+                elif charset == 950:
+                    charset = "Taiwan (Big5)"
+                elif charset == 1200:
+                    charset = "Unicode"
+                elif charset == 1250:
+                    charset = "Latin-2 (Eastern European)"
+                elif charset == 1251:
+                    charset = "Cyrillic"
+                elif charset == 1252:
+                    charset = "Multilingual"
+                elif charset == 1253:
+                    charset = "Greek"
+                elif charset == 1254:
+                    charset = "Turkish"
+                elif charset == 1255:
+                    charset = "Hebrew"
+                elif charset == 1256:
+                    charset = "Unknown charset"
+                print(
+                    "Attribute value".ljust(25),
+                    f"{position:0>8x}-{position+4:0>8x}".ljust(20),
+                    hexlify(data).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data).ljust(
+                        20
+                    ),
+                    language,
+                    ";",
+                    charset,
+                )
+            def read_StringFileInfo():
+                global position, entryend
+                char = file.read(1)
+                while char == b"\0":
+                    char = file.read(1)
+                    position += 1
+                data_length = char + file.read(1)
+                data_valuelength = file.read(2)
+                data_type = file.read(2)
+                entrylength = length = int.from_bytes(data_length, "little")
+                valuelength = int.from_bytes(data_valuelength, "little")
+                type_ = int.from_bytes(data_type, "little")
+                vprint(
+                    "String length".ljust(25),
+                    f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+                    hexlify(data_length).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data_length).ljust(
+                        20
+                    ),
+                    length,
+                )
+                vprint(
+                    "String value length".ljust(25),
+                    f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
+                    hexlify(data_valuelength).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
+                        20
+                    ),
+                    valuelength,
+                )
+                vprint(
+                    "String type".ljust(25),
+                    f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
+                    hexlify(data_type).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data_type).ljust(
+                        20
+                    ),
+                    type_,
+                )
+                data = file.read(8)
+                language = data.replace(b"\0", b"").decode()
+                languages = {
+                    "000B": "fi",
+                    "000C": "fr",
+                    "000D": "he",
+                    "000E": "hu",
+                    "000F": "is",
+                    "0010": "it",
+                    "0011": "ja",
+                    "0012": "ko",
+                    "0013": "nl",
+                    "0014": "no",
+                    "0015": "pl",
+                    "0016": "pt",
+                    "0017": "rm",
+                    "0018": "ro",
+                    "0019": "ru",
+                    "001A": "hr",
+                    "001B": "sk",
+                    "001C": "sq",
+                    "001D": "sv",
+                    "001E": "th",
+                    "001F": "tr",
+                    "0020": "ur",
+                    "0021": "id",
+                    "0022": "uk",
+                    "0023": "be",
+                    "0024": "sl",
+                    "0025": "et",
+                    "0026": "lv",
+                    "0027": "lt",
+                    "0028": "tg",
+                    "0029": "fa",
+                    "002A": "vi",
+                    "002B": "hy",
+                    "002C": "az",
+                    "002D": "eu",
+                    "002E": "hsb",
+                    "002F": "mk",
+                    "0030": "st",
+                    "0031": "ts",
+                    "0032": "tn",
+                    "0033": "ve",
+                    "0034": "xh",
+                    "0035": "zu",
+                    "0036": "af",
+                    "0037": "ka",
+                    "0038": "fo",
+                    "0039": "hi",
+                    "003A": "mt",
+                    "003B": "se",
+                    "003C": "ga",
+                    "003D": "yi, reserved",
+                    "003E": "ms",
+                    "003F": "kk",
+                    "0040": "ky",
+                    "0041": "sw",
+                    "0042": "tk",
+                    "0043": "uz",
+                    "0044": "tt",
+                    "0045": "bn",
+                    "0046": "pa",
+                    "0047": "gu",
+                    "0048": "or",
+                    "0049": "ta",
+                    "004A": "te",
+                    "004B": "kn",
+                    "004C": "ml",
+                    "004D": "as",
+                    "004E": "mr",
+                    "004F": "sa",
+                    "0050": "mn",
+                    "0051": "bo",
+                    "0052": "cy",
+                    "0053": "km",
+                    "0054": "lo",
+                    "0055": "my",
+                    "0056": "gl",
+                    "0057": "kok",
+                    "0058": "mni, reserved",
+                    "0059": "sd",
+                    "005A": "syr",
+                    "005B": "si",
+                    "005C": "chr",
+                    "005D": "iu",
+                    "005E": "am",
+                    "005F": "tzm",
+                    "0060": "ks",
+                    "0061": "ne",
+                    "0062": "fy",
+                    "0063": "ps",
+                    "0064": "fil",
+                    "0065": "dv",
+                    "0066": "bin, reserved",
+                    "0067": "ff",
+                    "0068": "ha",
+                    "0069": "ibb, reserved",
+                    "006A": "yo",
+                    "006B": "quz",
+                    "006C": "nso",
+                    "006D": "ba",
+                    "006E": "lb",
+                    "006F": "kl",
+                    "0070": "ig",
+                    "0071": "kr, reserved",
+                    "0072": "om",
+                    "0073": "ti",
+                    "0074": "gn",
+                    "0075": "haw",
+                    "0076": "la, reserved",
+                    "0077": "so, reserved",
+                    "0078": "ii",
+                    "0079": "pap, reserved",
+                    "007A": "arn",
+                    "007B": "Neither defined nor reserved",
+                    "007C": "moh",
+                    "007D": "Neither defined nor reserved",
+                    "007E": "br",
+                    "007F": "Reserved for invariant locale behavior",
+                    "0080": "ug",
+                    "0081": "mi",
+                    "0082": "oc",
+                    "0083": "co",
+                    "0084": "gsw",
+                    "0085": "sah",
+                    "0086": "qut",
+                    "0087": "rw",
+                    "0088": "wo",
+                    "0089": "Neither defined nor reserved",
+                    "008A": "Neither defined nor reserved",
+                    "008B": "Neither defined nor reserved",
+                    "008C": "prs",
+                    "008D": "Neither defined nor reserved",
+                    "008E": "Neither defined nor reserved",
+                    "008F": "Neither defined nor reserved",
+                    "0090": "Neither defined nor reserved",
+                    "0091": "gd",
+                    "0092": "ku",
+                    "0093": "quc, reserved",
+                    "0401": "ar-SA",
+                    "0402": "bg-BG",
+                    "0403": "ca-ES",
+                    "0404": "zh-TW",
+                    "0405": "cs-CZ",
+                    "0406": "da-DK",
+                    "0407": "de-DE",
+                    "0408": "el-GR",
+                    "0409": "en-US",
+                    "040A": "es-ES_tradnl",
+                    "040B": "fi-FI",
+                    "040C": "fr-FR",
+                    "040D": "he-IL",
+                    "040E": "hu-HU",
+                    "040F": "is-IS",
+                    "0410": "it-IT",
+                    "0411": "ja-JP",
+                    "0412": "ko-KR",
+                    "0413": "nl-NL",
+                    "0414": "nb-NO",
+                    "0415": "pl-PL",
+                    "0416": "pt-BR",
+                    "0417": "rm-CH",
+                    "0418": "ro-RO",
+                    "0419": "ru-RU",
+                    "041A": "hr-HR",
+                    "041B": "sk-SK",
+                    "041C": "sq-AL",
+                    "041D": "sv-SE",
+                    "041E": "th-TH",
+                    "041F": "tr-TR",
+                    "0420": "ur-PK",
+                    "0421": "id-ID",
+                    "0422": "uk-UA",
+                    "0423": "be-BY",
+                    "0424": "sl-SI",
+                    "0425": "et-EE",
+                    "0426": "lv-LV",
+                    "0427": "lt-LT",
+                    "0428": "tg-Cyrl-TJ",
+                    "0429": "fa-IR",
+                    "042A": "vi-VN",
+                    "042B": "hy-AM",
+                    "042C": "az-Latn-AZ",
+                    "042D": "eu-ES",
+                    "042E": "hsb-DE",
+                    "042F": "mk-MK",
+                    "0430": "st-ZA",
+                    "0431": "ts-ZA",
+                    "0432": "tn-ZA",
+                    "0433": "ve-ZA",
+                    "0434": "xh-ZA",
+                    "0435": "zu-ZA",
+                    "0436": "af-ZA",
+                    "0437": "ka-GE",
+                    "0438": "fo-FO",
+                    "0439": "hi-IN",
+                    "043A": "mt-MT",
+                    "043B": "se-NO",
+                    "043D": "yi-001",
+                    "043E": "ms-MY",
+                    "043F": "kk-KZ",
+                    "0440": "ky-KG",
+                    "0441": "sw-KE",
+                    "0442": "tk-TM",
+                    "0443": "uz-Latn-UZ",
+                    "0444": "tt-RU",
+                    "0445": "bn-IN",
+                    "0446": "pa-IN",
+                    "0447": "gu-IN",
+                    "0448": "or-IN",
+                    "0449": "ta-IN",
+                    "044A": "te-IN",
+                    "044B": "kn-IN",
+                    "044C": "ml-IN",
+                    "044D": "as-IN",
+                    "044E": "mr-IN",
+                    "044F": "sa-IN",
+                    "0450": "mn-MN",
+                    "0451": "bo-CN",
+                    "0452": "cy-GB",
+                    "0453": "km-KH",
+                    "0454": "lo-LA",
+                    "0455": "my-MM",
+                    "0456": "gl-ES",
+                    "0457": "kok-IN",
+                    "0458": "mni-IN, reserved",
+                    "0459": "sd-Deva-IN, reserved",
+                    "045A": "syr-SY",
+                    "045B": "si-LK",
+                    "045C": "chr-Cher-US",
+                    "045D": "iu-Cans-CA",
+                    "045E": "am-ET",
+                    "045F": "tzm-Arab-MA",
+                    "0460": "ks-Arab",
+                    "0461": "ne-NP",
+                    "0462": "fy-NL",
+                    "0463": "ps-AF",
+                    "0464": "fil-PH",
+                    "0465": "dv-MV",
+                    "0466": "bin-NG, reserved",
+                    "0467": "ff-NG, ff-Latn-NG",
+                    "0468": "ha-Latn-NG",
+                    "0469": "ibb-NG, reserved",
+                    "046A": "yo-NG",
+                    "046B": "quz-BO",
+                    "046C": "nso-ZA",
+                    "046D": "ba-RU",
+                    "046E": "lb-LU",
+                    "046F": "kl-GL",
+                    "0470": "ig-NG",
+                    "0471": "kr-Latn-NG",
+                    "0472": "om-ET",
+                    "0473": "ti-ET",
+                    "0474": "gn-PY",
+                    "0475": "haw-US",
+                    "0476": "la-VA",
+                    "0477": "so-SO",
+                    "0478": "ii-CN",
+                    "0479": "pap-029, reserved",
+                    "047A": "arn-CL",
+                    "047C": "moh-CA",
+                    "047E": "br-FR",
+                    "0480": "ug-CN",
+                    "0481": "mi-NZ",
+                    "0482": "oc-FR",
+                    "0483": "co-FR",
+                    "0484": "gsw-FR",
+                    "0485": "sah-RU",
+                    "0486": "qut-GT, reserved",
+                    "0487": "rw-RW",
+                    "0488": "wo-SN",
+                    "048C": "prs-AF",
+                    "048D": "plt-MG, reserved",
+                    "048E": "zh-yue-HK, reserved",
+                    "048F": "tdd-Tale-CN, reserved",
+                    "0490": "khb-Talu-CN, reserved",
+                    "0491": "gd-GB",
+                    "0492": "ku-Arab-IQ",
+                    "0493": "quc-CO, reserved",
+                    "0501": "qps-ploc",
+                    "05FE": "qps-ploca",
+                    "0801": "ar-IQ",
+                    "0803": "ca-ES-valencia",
+                    "0804": "zh-CN",
+                    "0807": "de-CH",
+                    "0809": "en-GB",
+                    "080A": "es-MX",
+                    "080C": "fr-BE",
+                    "0810": "it-CH",
+                    "0811": "ja-Ploc-JP, reserved",
+                    "0813": "nl-BE",
+                    "0814": "nn-NO",
+                    "0816": "pt-PT",
+                    "0818": "ro-MD",
+                    "0819": "ru-MD",
+                    "081A": "sr-Latn-CS",
+                    "081D": "sv-FI",
+                    "0820": "ur-IN",
+                    "0827": "Neither defined nor reserved",
+                    "082C": "az-Cyrl-AZ, reserved",
+                    "082E": "dsb-DE",
+                    "0832": "tn-BW",
+                    "083B": "se-SE",
+                    "083C": "ga-IE",
+                    "083E": "ms-BN",
+                    "083F": "kk-Latn-KZ, reserved",
+                    "0843": "uz-Cyrl-UZ, reserved",
+                    "0845": "bn-BD",
+                    "0846": "pa-Arab-PK",
+                    "0849": "ta-LK",
+                    "0850": "mn-Mong-CN, reserved",
+                    "0851": "bo-BT, reserved",
+                    "0859": "sd-Arab-PK",
+                    "085D": "iu-Latn-CA",
+                    "085F": "tzm-Latn-DZ",
+                    "0860": "ks-Deva-IN",
+                    "0861": "ne-IN",
+                    "0867": "ff-Latn-SN",
+                    "086B": "quz-EC",
+                    "0873": "ti-ER",
+                    "09FF": "qps-plocm",
+                    "0C00": "Locale without assigned LCID if the current user default locale. See section 2.2.1.",
+                    "0C01": "ar-EG",
+                    "0C04": "zh-HK",
+                    "0C07": "de-AT",
+                    "0C09": "en-AU",
+                    "0C0A": "es-ES",
+                    "0C0C": "fr-CA",
+                    "0C1A": "sr-Cyrl-CS",
+                    "0C3B": "se-FI",
+                    "0C50": "mn-Mong-MN",
+                    "0C51": "dz-BT",
+                    "0C5F": "tmz-MA, reserved",
+                    "0C6b": "quz-PE",
+                    "1000": "Locale without assigned LCID if the current user default locale. See section 2.2.1.",
+                    "1001": "ar-LY",
+                    "1004": "zh-SG",
+                    "1007": "de-LU",
+                    "1009": "en-CA",
+                    "100A": "es-GT",
+                    "100C": "fr-CH",
+                    "101A": "hr-BA",
+                    "103B": "smj-NO",
+                    "105F": "tzm-Tfng-MA",
+                    "1401": "ar-DZ",
+                    "1404": "zh-MO",
+                    "1407": "de-LI",
+                    "1409": "en-NZ",
+                    "140A": "es-CR",
+                    "140C": "fr-LU",
+                    "141A": "bs-Latn-BA",
+                    "143B": "smj-SE",
+                    "1801": "ar-MA",
+                    "1809": "en-IE",
+                    "180A": "es-PA",
+                    "180C": "fr-MC",
+                    "181A": "sr-Latn-BA",
+                    "183B": "sma-NO",
+                    "1C01": "ar-TN",
+                    "1C09": "en-ZA",
+                    "1C0A": "es-DO",
+                    "1C0C": "fr-029",
+                    "1C1A": "sr-Cyrl-BA",
+                    "1C3B": "sma-SE",
+                    "2001": "ar-OM",
+                    "2008": "Neither defined nor reserved",
+                    "2009": "en-JM",
+                    "200A": "es-VE",
+                    "200C": "fr-RE",
+                    "201A": "bs-Cyrl-BA",
+                    "203B": "sms-FI",
+                    "2401": "ar-YE",
+                    "2409": "en-029, reserved",
+                    "240A": "es-CO",
+                    "240C": "fr-CD",
+                    "241A": "sr-Latn-RS",
+                    "243B": "smn-FI",
+                    "2801": "ar-SY",
+                    "2809": "en-BZ",
+                    "280A": "es-PE",
+                    "280C": "fr-SN",
+                    "281A": "sr-Cyrl-RS",
+                    "2C01": "ar-JO",
+                    "2C09": "en-TT",
+                    "2C0A": "es-AR",
+                    "2C0C": "fr-CM",
+                    "2C1A": "sr-Latn-ME",
+                    "3000": (
+                        "Unassigned LCID locale temporarily assigned"
+                        " to LCID 0x3000. See section 2.2.1."
+                    ),
+                    "3001": "ar-LB",
+                    "3009": "en-ZW",
+                    "300A": "es-EC",
+                    "300C": "fr-CI",
+                    "301A": "sr-Cyrl-ME",
+                    "3400": (
+                        "Unassigned LCID locale temporarily "
+                        "assigned to LCID 0x3400. See section 2.2.1."
+                    ),
+                    "3401": "ar-KW",
+                    "3409": "en-PH",
+                    "340A": "es-CL",
+                    "340C": "fr-ML",
+                    "3800": (
+                        "Unassigned LCID locale temporarily "
+                        "assigned to LCID 0x3800. See section 2.2.1."
+                    ),
+                    "3801": "ar-AE",
+                    "3809": "en-ID, reserved",
+                    "380A": "es-UY",
+                    "380C": "fr-MA",
+                    "3C00": (
+                        "Unassigned LCID locale temporarily assigned"
+                        " to LCID 0x3C00. See section 2.2.1."
+                    ),
+                    "3C01": "ar-BH",
+                    "3C09": "en-HK",
+                    "3C0A": "es-PY",
+                    "3C0C": "fr-HT",
+                    "4000": (
+                        "Unassigned LCID locale temporarily "
+                        "assigned to LCID 0x4000. See section 2.2.1."
+                    ),
+                    "4001": "ar-QA",
+                    "4009": "en-IN",
+                    "400A": "es-BO",
+                    "4400": (
+                        "Unassigned LCID locale temporarily "
+                        "assigned to LCID 0x4400. See section 2.2.1."
+                    ),
+                    "4401": "ar-Ploc-SA, reserved",
+                    "4409": "en-MY",
+                    "440A": "es-SV",
+                    "4800": (
+                        "Unassigned LCID locale temporarily assigned"
+                        " to LCID 0x4800. See section 2.2.1."
+                    ),
+                    "4801": "ar-145, reserved",
+                    "4809": "en-SG",
+                    "480A": "es-HN",
+                    "4C00": (
+                        "Unassigned LCID locale temporarily"
+                        " assigned to LCID 0x4C00. See section 2.2.1."
+                    ),
+                    "4C09": "en-AE",
+                    "4C0A": "es-NI",
+                    "5009": "en-BH, reserved",
+                    "500A": "es-PR",
+                    "5409": "en-EG, reserved",
+                    "540A": "es-US",
+                    "5809": "en-JO, reserved",
+                    "580A": "es-419, reserved",
+                    "5C09": "en-KW, reserved",
+                    "5C0A": "es-CU",
+                    "6009": "en-TR, reserved",
+                    "6409": "en-YE, reserved",
+                    "641A": "bs-Cyrl",
+                    "681A": "bs-Latn",
+                    "6C1A": "sr-Cyrl",
+                    "701A": "sr-Latn",
+                    "703B": "smn",
+                    "742C": "az-Cyrl",
+                    "743B": "sms",
+                    "7804": "zh",
+                    "7814": "nn",
+                    "781A": "bs",
+                    "782C": "az-Latn",
+                    "783B": "sma",
+                    "783F": "kk-Cyrl, reserved",
+                    "7843": "uz-Cyrl",
+                    "7850": "mn-Cyrl",
+                    "785D": "iu-Cans",
+                    "785F": "tzm-Tfng",
+                    "7C04": "zh-Hant",
+                    "7C14": "nb",
+                    "7C1A": "sr",
+                    "7C28": "tg-Cyrl",
+                    "7C2E": "dsb",
+                    "7C3B": "smj",
+                    "7C3F": "kk-Latn, reserved",
+                    "7C43": "uz-Latn",
+                    "7C46": "pa-Arab",
+                    "7C50": "mn-Mong",
+                    "7C59": "sd-Arab",
+                    "7C5C": "chr-Cher",
+                    "7C5D": "iu-Latn",
+                    "7C5F": "tzm-Latn",
+                    "7C67": "ff-Latn",
+                    "7C68": "ha-Latn",
+                    "7C92": "ku-Arab",
+                    "F2EE": "reserved",
+                    "E40C": "fr-015, reserved",
+                    "EEEE": "reserved",
+                }
+                language = languages.get(language, "Invalid")
+                sublanguage = file.read(8).upper()
+                data += sublanguage
+                if sublanguage == b"0\x004\x00B\x000\x00":
+                    sublanguage = "Unicode"
+                elif sublanguage == b"0\x000\x000\x000\x00":
+                    sublanguage = "7-bit ASCII"
+                elif sublanguage == b"0\x003\x00A\x004\x00":
+                    sublanguage = "Japan (Shift ? JIS X-0208)"
+                elif sublanguage == b"0\x003\x00B\x005\x00":
+                    sublanguage = "Korea (Shift ? KSC 5601)"
+                elif sublanguage == b"0\x003\x00B\x006\x00":
+                    sublanguage = "Taiwan (Big5)"
+                elif sublanguage == b"0\x004\x00E\x002\x00":
+                    sublanguage = "Latin-2 (Eastern European)"
+                elif sublanguage == b"0\x004\x00E\x003\x00":
+                    sublanguage = "Cyrillic"
+                elif sublanguage == b"0\x004\x00E\x004\x00":
+                    sublanguage = "Multilingual"
+                elif sublanguage == b"0\x004\x00E\x005\x00":
+                    sublanguage = "Greek"
+                elif sublanguage == b"0\x004\x00E\x006\x00":
+                    sublanguage = "Turkish"
+                elif sublanguage == b"0\x004\x00E\x007\x00":
+                    sublanguage = "Hebrew"
+                elif sublanguage == b"0\x004\x00E\x008\x00":
+                    sublanguage = "Arabic"
+                else:
+                    sublanguage = "Unknown"
+                print(
+                    "Language".ljust(25),
+                    f"{position+6:0>8x}-{position+22:0>8x}".ljust(20),
+                    hexlify(data).decode().ljust(40),
+                    "".join(chr(x) if x in printable else "." for x in data).ljust(
+                        20
+                    ),
+                    language,
+                    ";",
+                    sublanguage,
+                )
+                entryend = position + entrylength
+                position += 22
+                get_attribute()
+            if string == b'VarFileInfo':
+                read_VarFileInfo()
+            elif string == b'StringFileInfo':
+                read_StringFileInfo()
             char = file.read(1)
             while char == "\0":
                 position += 1
                 char = file.read(1)
-            length = char + file.read(1)
-            valuelength = file.read(2)
-            type_ = file.read(2)
-            data = length + valuelength + type_
-            length = int.from_bytes(length, "little")
-            valuelength = int.from_bytes(valuelength, "little")
-            type_ = int.from_bytes(type_, "little")
+            data_length = char + file.read(1)
+            data_valuelength = file.read(2)
+            data_type = file.read(2)
+            length = int.from_bytes(data_length, "little")
+            valuelength = int.from_bytes(data_valuelength, "little")
+            type_ = int.from_bytes(data_type, "little")
             print(
                 "Version child length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+                hexlify(data_length).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in data_length).ljust(
                     20
                 ),
                 length,
             )
             print(
                 "Version child value length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
+                hexlify(data_valuelength).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
                     20
                 ),
                 valuelength,
             )
             print(
                 "Version child type".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
+                hexlify(data_type).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in data_type).ljust(
                     20
                 ),
                 type_,
@@ -2385,167 +2564,10 @@ with open(argv[1], "rb") as file:
                     chr(x) if x in printable else "." for x in string
                 ).ljust(20),
             )
-            char = file.read(1)
-            while char == "\0":
-                position += 1
-                char = file.read(1)
-            length = char + file.read(1)
-            valuelength = file.read(2)
-            type_ = file.read(2)
-            data = length + valuelength + type_
-            length = int.from_bytes(length, "little")
-            valuelength = int.from_bytes(valuelength, "little")
-            type_ = int.from_bytes(type_, "little")
-            vprint(
-                "String length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-                length,
-            )
-            vprint(
-                "String value length".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-                valuelength,
-            )
-            vprint(
-                "String type".ljust(25),
-                f"{position:0>8x}-{position+6:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-                type_,
-            )
-            position += 6
-            char = file.read(1)
-            position += 1
-            while char == b"\0":
-                char = file.read(1)
-                position += 1
-                start_string_position = position
-            precedent_char = char
-            string = char
-            char = file.read(1)
-            position += 1
-            while char != b"\0" or precedent_char != b"\0":
-                string += char
-                precedent_char = char
-                char = file.read(1)
-                position += 1
-            string = string.replace(b"\0", b"")
-            if len(string) <= 20:
-                data = hexlify(string).decode().ljust(40)
-            else:
-                data = "\b"
-            print(
-                "Attribute name".ljust(25),
-                f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
-                data,
-                "".join(
-                    chr(x) if x in printable else "." for x in string
-                ).ljust(20),
-            )
-            char = file.read(1)
-            position += 1
-            while char == b"\0":
-                char = file.read(1)
-                position += 1
-            language = char + file.read(1)
-            charset = file.read(2)
-            data = language + charset
-            languages = {
-                0x0401: "Arabic",
-                0x0415: "Polish",
-                0x0402: "Bulgarian",
-                0x0416: "Portuguese (Brazil)",
-                0x0403: "Catalan",
-                0x0417: "Rhaeto-Romanic",
-                0x0404: "Traditional Chinese",
-                0x0418: "Romanian",
-                0x0405: "Czech",
-                0x0419: "Russian",
-                0x0406: "Danish",
-                0x041A: "Croato-Serbian (Latin)",
-                0x0407: "German",
-                0x041B: "Slovak",
-                0x0408: "Greek",
-                0x041C: "Albanian",
-                0x0409: "U.S. English",
-                0x041D: "Swedish",
-                0x040A: "Castilian Spanish",
-                0x041E: "Thai",
-                0x040B: "Finnish",
-                0x041F: "Turkish",
-                0x040C: "French",
-                0x0420: "Urdu",
-                0x040D: "Hebrew",
-                0x0421: "Bahasa",
-                0x040E: "Hungarian",
-                0x0804: "Simplified Chinese",
-                0x040F: "Icelandic",
-                0x0807: "Swiss German",
-                0x0410: "Italian",
-                0x0809: "U.K. English",
-                0x0411: "Japanese",
-                0x080A: "Spanish (Mexico)",
-                0x0412: "Korean",
-                0x080C: "Belgian French",
-                0x0413: "Dutch",
-                0x0C0C: "Canadian French",
-                0x0414: "Norwegian – Bokmal",
-                0x100C: "Swiss French",
-                0x0810: "Swiss Italian",
-                0x0816: "Portuguese (Portugal)",
-                0x0813: "Belgian Dutch",
-                0x081A: "Serbo-Croatian (Cyrillic)",
-                0x0814: "Norwegian – Nynorsk",
-            }
-            language = languages.get(
-                int.from_bytes(language, "little"), "Unknown language"
-            )
-            charset = int.from_bytes(charset, "little")
-            if charset == 0:
-                charset = "7-bit ASCII"
-            elif charset == 932:
-                charset = "Japan (Shift – JIS X-0208)"
-            elif charset == 949:
-                charset = "Korea (Shift – KSC 5601)"
-            elif charset == 950:
-                charset = "Taiwan (Big5)"
-            elif charset == 1200:
-                charset = "Unicode"
-            elif charset == 1250:
-                charset = "Latin-2 (Eastern European)"
-            elif charset == 1251:
-                charset = "Cyrillic"
-            elif charset == 1252:
-                charset = "Multilingual"
-            elif charset == 1253:
-                charset = "Greek"
-            elif charset == 1254:
-                charset = "Turkish"
-            elif charset == 1255:
-                charset = "Hebrew"
-            elif charset == 1256:
-                charset = "Unknown charset"
-            print(
-                "Attribute value".ljust(25),
-                f"{position:0>8x}-{position+4:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
-                language,
-                ";",
-                charset,
-            )
+            if string == b'VarFileInfo':
+                read_VarFileInfo()
+            elif string == b'StringFileInfo':
+                read_StringFileInfo()
             print(
                 "\n", f"{' Version end - In resources ':*^139}", "\n", sep=""
             )
