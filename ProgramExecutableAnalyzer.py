@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -45,8 +45,15 @@ __all__ = []
 
 print(copyright)
 
+try:
+    from EntropyAnalysis import charts_chunks_file_entropy
+    from matplotlib import pyplot
+except ImportError:
+    entropy_charts_import = False
+else:
+    entropy_charts_import = True
+
 from sys import argv, stderr, exit
-from dataclasses import dataclass
 from string import printable
 from binascii import hexlify
 from os.path import getsize
@@ -102,6 +109,7 @@ if len(argv) != 2:
     )
     exit(1)
 
+sections = {}
 filesize = getsize(argv[1])
 with open(argv[1], "rb") as file:
     print(
@@ -1041,7 +1049,7 @@ with open(argv[1], "rb") as file:
             rva_resource = int.from_bytes(rva, "little")
             temp_position = file.tell()
             file.seek(rva_resource)
-            data_position = int.from_bytes(file.read(4), 'little')
+            data_position = int.from_bytes(file.read(4), "little")
             file.seek(temp_position)
         elif i == 0:
             rva_export = int.from_bytes(rva, "little")
@@ -1129,6 +1137,7 @@ with open(argv[1], "rb") as file:
             "Data address:",
             int.from_bytes(data, "little"),
         )
+        sections[label.split()[1]] = int.from_bytes(data, "little")
         data = file.read(4)
         vprint(
             label,
@@ -1241,14 +1250,14 @@ with open(argv[1], "rb") as file:
         else:
             name = name.replace(b"\0", b"0")
         vprint(
-            f"Entry offset".ljust(25),
+            "Entry offset".ljust(25),
             f"{position:0>8x}-{position+8:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             offset_int,
         )
         vprint(
-            f"Entry type".ljust(25),
+            "Entry type".ljust(25),
             f"{position:0>8x}-{position+8:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
@@ -1264,7 +1273,7 @@ with open(argv[1], "rb") as file:
         position += 8
         return type_int, offset_int
 
-    def get_attribute(char = None):
+    def get_attribute(char=None):
         global position, entryend
         entryposition = position
         char = char or file.read(1)
@@ -1281,21 +1290,27 @@ with open(argv[1], "rb") as file:
             "String length".ljust(25),
             f"{position:0>8x}-{position+2:0>8x}".ljust(20),
             hexlify(data_length).decode().ljust(40),
-            "".join(chr(x) if x in printable else "." for x in data_length).ljust(20),
+            "".join(
+                chr(x) if x in printable else "." for x in data_length
+            ).ljust(20),
             length,
         )
         vprint(
             "String value length".ljust(25),
             f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
             hexlify(data_valuelength).decode().ljust(40),
-            "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(20),
+            "".join(
+                chr(x) if x in printable else "." for x in data_valuelength
+            ).ljust(20),
             valuelength,
         )
         vprint(
             "String type".ljust(25),
             f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
             hexlify(data_type).decode().ljust(40),
-            "".join(chr(x) if x in printable else "." for x in data_type).ljust(20),
+            "".join(
+                chr(x) if x in printable else "." for x in data_type
+            ).ljust(20),
             type_,
         )
         position += 6
@@ -1351,9 +1366,9 @@ with open(argv[1], "rb") as file:
                 "Attribute value".ljust(25),
                 f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
                 data,
-                "".join(chr(x) if x in printable else "." for x in string).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in string
+                ).ljust(20),
             )
             char = None
         if entryend > position + 10:
@@ -1373,21 +1388,21 @@ with open(argv[1], "rb") as file:
         offset = int.from_bytes(offset, "little")
         size = int.from_bytes(size, "little")
         vprint(
-            f"Entry Offset".ljust(25),
+            "Entry Offset".ljust(25),
             f"{position:0>8x}-{position+16:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             offset,
         )
         print(
-            f"Entry Size".ljust(25),
+            "Entry Size".ljust(25),
             f"{position:0>8x}-{position+16:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             size,
         )
         vprint(
-            f"Entry CodePage".ljust(25),
+            "Entry CodePage".ljust(25),
             f"{position:0>8x}-{position+16:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
@@ -1408,7 +1423,7 @@ with open(argv[1], "rb") as file:
                 char = file.read(1)
                 position += 1
             print(
-                f"Manifest".ljust(25),
+                "Manifest".ljust(25),
                 f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
                 "\b",
                 string.decode().strip(),
@@ -1429,27 +1444,28 @@ with open(argv[1], "rb") as file:
                 "Version length".ljust(25),
                 f"{position:0>8x}-{position+2:0>8x}".ljust(20),
                 hexlify(value_length).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in value_length).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in value_length
+                ).ljust(20),
                 length,
             )
             vprint(
                 "Version value length".ljust(25),
                 f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
                 hexlify(value_valuelength).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in value_valuelength).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "."
+                    for x in value_valuelength
+                ).ljust(20),
                 valuelength,
             )
             vprint(
                 "Version type".ljust(25),
                 f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
                 hexlify(value_type).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in value_type).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in value_type
+                ).ljust(20),
                 type_,
             )
             print(
@@ -1712,27 +1728,27 @@ with open(argv[1], "rb") as file:
                 "Version length".ljust(25),
                 f"{position:0>8x}-{position+2:0>8x}".ljust(20),
                 hexlify(data_length).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data_length).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in data_length
+                ).ljust(20),
                 length,
             )
             vprint(
                 "Version value length".ljust(25),
                 f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
                 hexlify(data_valuelength).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in data_valuelength
+                ).ljust(20),
                 valuelength,
             )
             vprint(
                 "Version type".ljust(25),
                 f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
                 hexlify(data_type).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data_type).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in data_type
+                ).ljust(20),
                 type_,
             )
             position += 6
@@ -1755,10 +1771,11 @@ with open(argv[1], "rb") as file:
                 "Version child key".ljust(25),
                 f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
                 data,
-                "".join(chr(x) if x in printable else "." for x in string).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in string
+                ).ljust(20),
             )
+
             def read_VarFileInfo():
                 global position
                 char = file.read(1)
@@ -1775,27 +1792,28 @@ with open(argv[1], "rb") as file:
                     "String length".ljust(25),
                     f"{position:0>8x}-{position+2:0>8x}".ljust(20),
                     hexlify(data_length).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data_length).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "." for x in data_length
+                    ).ljust(20),
                     length,
                 )
                 vprint(
                     "String value length".ljust(25),
                     f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
                     hexlify(data_valuelength).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "."
+                        for x in data_valuelength
+                    ).ljust(20),
                     valuelength,
                 )
                 vprint(
                     "String type".ljust(25),
                     f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
                     hexlify(data_type).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data_type).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "." for x in data_type
+                    ).ljust(20),
                     type_,
                 )
                 position += 6
@@ -1914,13 +1932,14 @@ with open(argv[1], "rb") as file:
                     "Attribute value".ljust(25),
                     f"{position:0>8x}-{position+4:0>8x}".ljust(20),
                     hexlify(data).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "." for x in data
+                    ).ljust(20),
                     language,
                     ";",
                     charset,
                 )
+
             def read_StringFileInfo():
                 global position, entryend
                 char = file.read(1)
@@ -1937,27 +1956,28 @@ with open(argv[1], "rb") as file:
                     "String length".ljust(25),
                     f"{position:0>8x}-{position+2:0>8x}".ljust(20),
                     hexlify(data_length).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data_length).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "." for x in data_length
+                    ).ljust(20),
                     length,
                 )
                 vprint(
                     "String value length".ljust(25),
                     f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
                     hexlify(data_valuelength).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "."
+                        for x in data_valuelength
+                    ).ljust(20),
                     valuelength,
                 )
                 vprint(
                     "String type".ljust(25),
                     f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
                     hexlify(data_type).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data_type).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "." for x in data_type
+                    ).ljust(20),
                     type_,
                 )
                 data = file.read(8)
@@ -2489,9 +2509,9 @@ with open(argv[1], "rb") as file:
                     "Language".ljust(25),
                     f"{position+6:0>8x}-{position+22:0>8x}".ljust(20),
                     hexlify(data).decode().ljust(40),
-                    "".join(chr(x) if x in printable else "." for x in data).ljust(
-                        20
-                    ),
+                    "".join(
+                        chr(x) if x in printable else "." for x in data
+                    ).ljust(20),
                     language,
                     ";",
                     sublanguage,
@@ -2499,9 +2519,10 @@ with open(argv[1], "rb") as file:
                 entryend = position + entrylength
                 position += 22
                 get_attribute()
-            if string == b'VarFileInfo':
+
+            if string == b"VarFileInfo":
                 read_VarFileInfo()
-            elif string == b'StringFileInfo':
+            elif string == b"StringFileInfo":
                 read_StringFileInfo()
             char = file.read(1)
             while char == "\0":
@@ -2517,27 +2538,27 @@ with open(argv[1], "rb") as file:
                 "Version child length".ljust(25),
                 f"{position:0>8x}-{position+2:0>8x}".ljust(20),
                 hexlify(data_length).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data_length).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in data_length
+                ).ljust(20),
                 length,
             )
             print(
                 "Version child value length".ljust(25),
                 f"{position+2:0>8x}-{position+4:0>8x}".ljust(20),
                 hexlify(data_valuelength).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data_valuelength).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in data_valuelength
+                ).ljust(20),
                 valuelength,
             )
             print(
                 "Version child type".ljust(25),
                 f"{position+4:0>8x}-{position+6:0>8x}".ljust(20),
                 hexlify(data_type).decode().ljust(40),
-                "".join(chr(x) if x in printable else "." for x in data_type).ljust(
-                    20
-                ),
+                "".join(
+                    chr(x) if x in printable else "." for x in data_type
+                ).ljust(20),
                 type_,
             )
             position += 6
@@ -2564,9 +2585,9 @@ with open(argv[1], "rb") as file:
                     chr(x) if x in printable else "." for x in string
                 ).ljust(20),
             )
-            if string == b'VarFileInfo':
+            if string == b"VarFileInfo":
                 read_VarFileInfo()
-            elif string == b'StringFileInfo':
+            elif string == b"StringFileInfo":
                 read_StringFileInfo()
             print(
                 "\n", f"{' Version end - In resources ':*^139}", "\n", sep=""
@@ -3006,3 +3027,9 @@ with open(argv[1], "rb") as file:
                     file.seek(position)
                 address = file.read(2)
             position = saved_position
+
+    if entropy_charts_import:
+        file.seek(0)
+        charts_chunks_file_entropy(
+            file, part_size=round(filesize / 100), sections=sections
+        )
