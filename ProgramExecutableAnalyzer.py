@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ProgramExecutableAnalyzer
-Version: 0.0.4
+Version: 0.0.5
 Summary: This script analyzes MZ-PE (MS-DOS) executable.
 Home-page: https://github.com/mauricelambert/ProgramExecutableAnalyzer
 Author: Maurice Lambert
@@ -74,6 +74,7 @@ python3 ProgramExecutableAnalyzer.py -v executable.exe  # Verbose mode
 
  - [Github Page](https://github.com/mauricelambert/ProgramExecutableAnalyzer/)
  - [Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.pyz)
+ - [Pypi package](https://pypi.org/project/ProgramExecutableAnalyzer/)
 
 ## Licence
 
