@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -1175,14 +1175,77 @@ with open(argv[1], "rb") as file:
             int.from_bytes(data, "little"),
         )
         data = file.read(4)
+        data_value = int.from_bytes(data, "little")
         vprint(
             label,
             f"{address+36:0>8x}-{address+40:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
-            "Characteristics:",
-            int.from_bytes(data, "little"),
+            "Characteristics value:",
+            data_value,
         )
+        if data_value & 0x00000008:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Not padded")
+        if data_value & 0x00000020:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Executable code")
+        if data_value & 0x00000040:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Initialized data")
+        if data_value & 0x00000080:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Uninitialized data")
+        if data_value & 0x00000200:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Comments && informations")
+        if data_value & 0x00000800:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Not a part of the image")
+        if data_value & 0x00001000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "COMDAT data")
+        if data_value & 0x00004000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Reset exceptions in the TLB")
+        if data_value & 0x00008000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Data using global pointer")
+        if data_value & 0x00100000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 1-byte boundary")
+        if data_value & 0x00200000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 2-byte boundary")
+        if data_value & 0x00300000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 4-byte boundary")
+        if data_value & 0x00400000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 8-byte boundary")
+        if data_value & 0x00500000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 16-byte boundary")
+        if data_value & 0x00600000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 32-byte boundary")
+        if data_value & 0x00700000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 64-byte boundary")
+        if data_value & 0x00800000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 128-byte boundary")
+        if data_value & 0x00900000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 256-byte boundary")
+        if data_value & 0x00A00000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 512-byte boundary")
+        if data_value & 0x00B00000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 1024-byte boundary")
+        if data_value & 0x00C00000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 2048-byte boundary")
+        if data_value & 0x00D00000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 4096-byte boundary")
+        if data_value & 0x00E00000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Align 8192-byte boundary")
+        if data_value & 0x01000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Extended relocations")
+        if data_value & 0x02000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Discarded as needed")
+        if data_value & 0x04000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Cannot be cached")
+        if data_value & 0x08000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Cannot be paged")
+        if data_value & 0x10000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Shared in memory")
+        if data_value & 0x20000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Executed as code")
+        if data_value & 0x40000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Read permissions")
+        if data_value & 0x80000000:
+            print(label, f"{address+36:0>8x}-{address+40:0>8x}".ljust(20), hexlify(data).decode().ljust(40), "".join(chr(x) if x in printable else "." for x in data).ljust(20), "Write permissions")
         address += 40
         # saved_position = file.tell()
         # file.seek(data_position)
@@ -2962,10 +3025,9 @@ with open(argv[1], "rb") as file:
             file.seek(position)
             address = file.read(2)
             while address != b"\0\0":
-                if b"\0\x80" == address:
-                    data = file.read(address_length)
-                    ordinal = int.from_bytes(data, "little")
-                    data = address + data
+                data = address + file.read(address_length)
+                if data.endswith(b"\0\x80"):
+                    ordinal = int.from_bytes(data[:-2], "little")
                     print(
                         "Ordinal".ljust(25),
                         f"{position:0>8x}-{position+address_length+2:0>8x}".ljust(
@@ -2980,12 +3042,12 @@ with open(argv[1], "rb") as file:
                 else:
                     position = (
                         int.from_bytes(
-                            address + file.read(address_length), "little"
+                            data, "little"
                         )
                         - import_virtual_address
                         + import_data_position
                     )
-                    if position > filesize:
+                    if 0 >= position or position >= filesize:
                         position = file.tell()
                         print(
                             "Function unknown".ljust(25),
@@ -2998,6 +3060,7 @@ with open(argv[1], "rb") as file:
                             "Address:",
                             position,
                         )
+                        address = file.read(2)
                         continue
                     saved_position2 = file.tell()
                     file.seek(position)
