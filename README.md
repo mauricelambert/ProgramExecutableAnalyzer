@@ -13,12 +13,21 @@ This tool is useful for malware analysis or debug/understand compiled dependenci
  5. Get timestamps saved in executable
  6. Get architecture, system version, resources (Version file, Manifest)
  7. Get company name, product name, product version, copyright
- 8. Sections sizes and addresses
+ 8. Sections names, sizes, addresses and characteristics
+ 9. When *matplotlib* and *EntropyAnalysis* are installed, generate charts for entropy analysis (with sections)
 
 ## Requirements
 
  - python3
  - Python 3 Standard library
+
+### Optional
+
+ - matplotlib
+ - EntropyAnalysis
+
+>> *Matplotlib* and *EntropyAnalysis* are not installed by *ProgramExecutableAnalyzer* because this package can be installed on server without GUI.
+>> You can install optinal required packages with the following command: `python3 -m pip install matplotlib EntropyAnalysis`
 
 ## Installation
 
@@ -44,7 +53,8 @@ python3 ProgramExecutableAnalyzer.py -v executable.exe  # Verbose mode
 ## Links
 
  - [Github Page](https://github.com/mauricelambert/ProgramExecutableAnalyzer/)
- - [Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.pyz)
+ - [Pythont Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.pyz)
+ - [Windows Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.exe)
 
 ## Licence
 
