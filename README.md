@@ -53,7 +53,7 @@ python3 ProgramExecutableAnalyzer.py -v executable.exe  # Verbose mode
 ## Links
 
  - [Github Page](https://github.com/mauricelambert/ProgramExecutableAnalyzer/)
- - [Pythont Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.pyz)
+ - [Python Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.pyz)
  - [Windows Executable](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer.exe)
 
 ## Licence
