@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -2733,7 +2733,7 @@ with open(argv[1], "rb") as file:
         file.seek(position)
         data = file.read(4)
         vprint(
-            "Characteristics".ljust(25),
+            "Export Flags".ljust(25),
             f"{position:0>8x}-{position+4:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
@@ -2766,7 +2766,7 @@ with open(argv[1], "rb") as file:
         data = file.read(4)
         name_address = int.from_bytes(data, "little")
         vprint(
-            "Name address".ljust(25),
+            "DLL name address".ljust(25),
             f"{position+12:0>8x}-{position+16:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
@@ -2785,7 +2785,7 @@ with open(argv[1], "rb") as file:
                 char = file.read(1)
                 position += 1
             print(
-                "Name".ljust(25),
+                "DLL Name".ljust(25),
                 f"{start_position:0>8x}-{position:0>8x}".ljust(20),
                 hexlify(data).decode().ljust(40) if len(data) < 20 else "\b",
                 "".join(chr(x) if x in printable else "." for x in data).ljust(
@@ -2795,12 +2795,13 @@ with open(argv[1], "rb") as file:
             file.seek(saved_position)
             position = saved_position - 16
         data = file.read(4)
+        ordinal_base = int.from_bytes(data, "little")
         print(
-            "Base".ljust(25),
+            "Ordinal base".ljust(25),
             f"{position+16:0>8x}-{position+20:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
-            int.from_bytes(data, "little"),
+            ordinal_base,
         )
         data = file.read(4)
         functions_number = int.from_bytes(data, "little")
@@ -2840,14 +2841,14 @@ with open(argv[1], "rb") as file:
         data = file.read(4)
         ordinals_address = int.from_bytes(data, "little")
         vprint(
-            "Ordinal names addresses".ljust(25),
+            "Ordinals address".ljust(25),
             f"{position+36:0>8x}-{position+40:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             ordinals_address,
         )
         position += 40
-
+        functions_names = []
         for name_index in range(names_number):
             position = (
                 names_adress - export_virtual_address + export_data_position
@@ -2860,57 +2861,41 @@ with open(argv[1], "rb") as file:
                 + export_data_position
             )
             file.seek(position)
+            start_string_position = position
             data = file.read(2)
             char = file.read(1)
-            position += 2
-            start_string_position = position
-            position += 1
-            data = b""
+            position += 3
             while char != b"\0":
                 data += char
                 position += 1
                 char = file.read(1)
+            function_name = "".join(chr(x) if x in printable else "." for x in data).ljust(
+                20
+            )
             print(
                 "Function name".ljust(25),
                 f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
                 hexlify(data).decode().ljust(40) if len(data) < 20 else "\b",
-                "".join(chr(x) if x in printable else "." for x in data).ljust(
-                    20
-                ),
+                function_name,
             )
+            functions_names.append(function_name)
             names_adress += 4
-        for function_index in range(functions_number - names_number):
-            position = (
-                ordinals_address
-                - export_virtual_address
-                + export_data_position
-            )
-            file.seek(position)
+        position = (
+            ordinals_address
+            - export_virtual_address
+            + export_data_position
+        )
+        file.seek(position)
+        # for function_index in range(functions_number - names_number):
+        for function_index, name in enumerate(functions_names):
             data = file.read(2)
-            ordinal = file.read(2)
-            if b"\x08\x00" == data:
-                data += ordinal
-                print(
-                    "Ordinal".ljust(25),
-                    f"{position:0>8x}-{position+4:0>8x}".ljust(20),
-                    hexlify(data).decode().ljust(40),
-                    "".join(
-                        chr(x) if x in printable else "." for x in data
-                    ).ljust(20),
-                    hex(ordinal),
-                )
-            else:
-                data += ordinal
-                print(
-                    "Invalid ordinal".ljust(25),
-                    f"{position:0>8x}-{position+4:0>8x}".ljust(20),
-                    hexlify(data).decode().ljust(40),
-                    "".join(
-                        chr(x) if x in printable else "." for x in data
-                    ).ljust(20),
-                    hex(ordinal),
-                )
-            position += 4
+            print(
+                "Ordinal".ljust(25),
+                f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+                hexlify(data).decode().ljust(40),
+                str(int.from_bytes(data, "little") + ordinal_base) + " " + name,
+            )
+            position += 2
     if exe_architecture == 64:
         address_length = 6
     else:
