@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -1163,9 +1163,10 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             "Data address:",
             int.from_bytes(data, "little"),
         )
-        sections.append(
-            Section(label.split()[1], section_address, section_size)
-        )
+        if entropy_charts_import:
+            sections.append(
+                Section(label.split()[1], section_address, section_size)
+            )
         data = file.read(4)
         vprint(
             label,
