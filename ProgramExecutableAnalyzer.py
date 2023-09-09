@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.10"
+__version__ = "0.0.11"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -97,6 +97,9 @@ elif "-c" not in argv:
     )
 else:
     argv.remove("-c")
+
+# print = lambda *x, **y: None
+myCounter = 1
 
 if "-v" in argv:
     argv.remove("-v")
@@ -319,7 +322,6 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
     )
     address = int.from_bytes(data, "little")
     data = file.read(address - 64)
-    # print(data)
     print("\n", f"{' NT Headers ':*^139}", "\n", sep="")
     data = file.read(4)
     if data != b"PE\x00\x00":
@@ -700,13 +702,10 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
         data = file.read(8)
     if data[-4:] == b"\x01\x00\x00\x00":
         description = "EXE default position"
-        # virtual address memory where executable is loaded
     elif data[-4:] == b"\x00\x01\x00\x00":
         description = "CE EXE default position"
-        # virtual address memory where executable is loaded
     elif data[-4:] == b"\x00\x40\x00\x00":
         description = "DLL default position"
-        # virtual address memory where executable is loaded
     else:
         description = f"Loaded position: ({int.from_bytes(data, 'little')})"
     print(
@@ -1752,7 +1751,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             return read_data_entry()
         position = data_position + (offset - rsrc_virtual_address)
         if position <= 0:
-            return
+            return size
         file.seek(position)
         if last_object == 24:
             string = b""
@@ -1822,7 +1821,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 char = file.read(1)
                 position += 1
             if not valuelength:
-                return
+                return size
             signature = char + file.read(3)
             if signature == b"\xbd\x04\xef\xfe":
                 part_decimal = file.read(2)
@@ -2933,6 +2932,8 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 "\n", f"{' Version end - In resources ':*^139}", "\n", sep=""
             )
 
+        return size
+
     def read_resources_headers(main=False):
         global position, last_object
         data = file.read(4)
@@ -2986,6 +2987,8 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             id_entries,
         )
         position += 16
+        if not id_entries:
+            return None
         for entry in range(named_entries + id_entries):
             if position > 0:
                 file.seek(position)
@@ -2996,10 +2999,15 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                     if type_int:
                         read_resources_headers()
                     else:
-                        read_data_entry()
-            if main:
-                position = data_position + 16 + 8 * (entry + 1)
-                last_object = None
+                        size = read_data_entry()
+                        if size != 16 and size != 8:
+                            return None
+
+            if not main:
+                break
+
+            position = data_position + 16 + 8 * (entry + 1)
+            last_object = None
 
     if position < filesize:
         print("\n", f"{' Resources ':*^139}", "\n", sep="")

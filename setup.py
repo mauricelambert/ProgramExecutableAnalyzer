@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="ProgramExecutableAnalyzer",
-    version="0.0.10",
+    version="0.0.11",
     py_modules=["ProgramExecutableAnalyzer"],
     install_requires=[],
     author="Maurice Lambert",
