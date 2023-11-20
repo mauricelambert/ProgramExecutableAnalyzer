@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "0.0.11"
+__version__ = "1.0.0"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -45,23 +45,41 @@ __all__ = []
 
 print(copyright)
 
+from sys import argv, stderr, stdin, exit, executable
+from string import printable as printable_
+from urllib.request import urlopen
+from shutil import copyfileobj
+from os.path import basename
+from binascii import hexlify
+from os.path import getsize
+from random import randint
+from typing import Tuple
+from io import BytesIO
+from time import ctime
+from os import name
+
 try:
     from EntropyAnalysis import charts_chunks_file_entropy, Section
     from matplotlib import pyplot
 except ImportError:
+    print(
+        "EntropyAnalysis is not installed in the python "
+        "environment or matplotlib.pyplot cannot be imported."
+        " No entropy analysis will run. No plot to compare "
+        "sections virtual size/address and physical size/address"
+        " will spawn.\n\t - to install EntropyAnalysis and "
+        "matplotlib run the following command: pip install"
+        " EntropyAnalysis matplotlib\nThis is not requirements"
+        " because this script should run on server without any "
+        "GUI installed.",
+        # file=stderr,
+    )
     entropy_charts_import = False
 else:
     entropy_charts_import = True
 
-from sys import argv, stderr, exit, executable
-from urllib.request import urlopen
-from string import printable
-from binascii import hexlify
-from os.path import getsize
-from io import BytesIO
-from time import ctime
-
-printable = printable[:-5].encode()
+printable = printable_[:-5].encode()
+not_printable = [x for x in range(256) if x not in printable]
 
 if "-h" in argv:
     print(
@@ -97,6 +115,36 @@ elif "-c" not in argv:
     )
 else:
     argv.remove("-c")
+
+
+colors = []
+
+
+def generate_color() -> Tuple[float, float, float]:
+    """
+    This function generates different colors for charts.
+    """
+
+    red = randint(0, 150) + 50
+    blue = randint(0, 128) + 127
+    green = randint(0, 150) + 50
+
+    for red_, green_, blue_ in colors:
+        if (
+            sum(
+                (
+                    (max(red, red_) - min(red, red_)),
+                    (max(green, green_) - min(green, green_)),
+                    (max(blue, blue_) - min(blue, blue_)),
+                )
+            )
+            < 50
+        ):
+            return generate_color()
+
+    colors.append((red, green, blue))
+    return (red, green, blue)
+
 
 # print = lambda *x, **y: None
 myCounter = 1
@@ -135,6 +183,741 @@ if is_url:
             file=stderr,
         )
         exit(2)
+elif argv[1] == "-":
+    is_url = True
+    data = stdin.buffer.read()
+
+if name == "nt" and not is_url:
+    from ctypes.wintypes import (
+        DWORD,
+        LPCWSTR,
+        LPVOID,
+        BYTE,
+        LPSTR,
+        LPWSTR,
+        BOOL,
+        FILETIME,
+        WCHAR,
+        LPCSTR,
+        WORD,
+        HANDLE,
+    )
+    from ctypes import (
+        Structure,
+        windll,
+        sizeof,
+        c_ulonglong,
+        c_ulong,
+        c_ushort,
+        c_byte,
+        pointer,
+        POINTER,
+        c_void_p,
+        cast,
+        c_uint8,
+    )
+
+    verify_sign = windll.LoadLibrary("wintrust").WinVerifyTrust
+    last_error = windll.LoadLibrary("kernel32").GetLastError
+    crypt_query = windll.LoadLibrary("crypt32").CryptQueryObject
+    crypt_message = windll.LoadLibrary("crypt32").CryptMsgGetParam
+    find_certificate = windll.LoadLibrary("crypt32").CertFindCertificateInStore
+    get_certificate_name = windll.LoadLibrary("crypt32").CertGetNameStringA
+    crypt_decode = windll.LoadLibrary("crypt32").CryptDecodeObject
+    time_to_localtime = windll.LoadLibrary("kernel32").FileTimeToLocalFileTime
+    time_to_systemtime = windll.LoadLibrary("kernel32").FileTimeToSystemTime
+    alloc = windll.LoadLibrary("kernel32").LocalAlloc
+
+    class GUID(Structure):
+        _fields_ = [
+            ("data1", c_ulong),
+            ("data2", c_ushort),
+            ("data3", c_ushort),
+            ("data4", c_byte * 8),
+        ]
+
+    class WINTRUST_FILE_INFO(Structure):
+        _fields_ = [
+            ("cbStruct", DWORD),
+            ("pcwszFilePath", LPCWSTR),
+            ("hFile", HANDLE),
+            ("pgKnownSubject", LPVOID),
+        ]
+
+    class WINTRUST_DATA(Structure):
+        _fields_ = [
+            ("cbStruct", DWORD),
+            ("pPolicyCallbackData", LPVOID),
+            ("pSIPClientData", LPVOID),
+            ("dwUIChoice", DWORD),
+            ("fdwRevocationChecks", DWORD),
+            ("dwUnionChoice", DWORD),
+            ("pFile", POINTER(WINTRUST_FILE_INFO)),
+            ("dwStateAction", DWORD),
+            ("hWVTStateData", HANDLE),
+            ("pwszURLReference", LPCWSTR),
+            ("dwProvFlags", DWORD),
+            ("dwUIContext", DWORD),
+            ("pSignatureSettings", LPVOID),
+        ]
+
+    class SPC_LINK(Structure):
+        _fields_ = [
+            ("dwLinkChoice", DWORD),
+            ("pwszFile", LPWSTR),
+        ]
+
+    class SPC_SP_OPUS_INFO(Structure):
+        _fields_ = [
+            ("pwszProgramName", LPCWSTR),
+            ("pMoreInfo", POINTER(SPC_LINK)),
+            ("pPublisherInfo", POINTER(SPC_LINK)),
+        ]
+
+    class CRYPTOAPI_BLOB(Structure):
+        _fields_ = [
+            ("cbData", DWORD),
+            ("pbData", POINTER(BYTE)),
+        ]
+
+    class CRYPT_ATTRIBUTE(Structure):
+        _fields_ = [
+            ("pszObjId", LPSTR),
+            ("cValue", DWORD),
+            ("rgValue", POINTER(CRYPTOAPI_BLOB)),
+        ]
+
+    class CRYPT_ATTRIBUTES(Structure):
+        _fields_ = [
+            ("cAttr", DWORD),
+            ("rgAttr", POINTER(CRYPT_ATTRIBUTE)),
+        ]
+
+    class CRYPT_ALGORITHM_IDENTIFIER(Structure):
+        _fields_ = [
+            ("pszObjId", LPSTR),
+            ("Parameters", CRYPTOAPI_BLOB),
+        ]
+
+    class CMSG_SIGNER_INFO(Structure):
+        _fields_ = [
+            ("dwVersion", DWORD),
+            ("Issuer", CRYPTOAPI_BLOB),
+            ("SerialNumber", CRYPTOAPI_BLOB),
+            ("HashAlgorithm", CRYPT_ALGORITHM_IDENTIFIER),
+            ("HashEncryptionAlgorithm", CRYPT_ALGORITHM_IDENTIFIER),
+            ("EncryptedHash", CRYPTOAPI_BLOB),
+            ("AuthAttrs", CRYPT_ATTRIBUTES),
+            ("UnauthAttrs", CRYPT_ATTRIBUTES),
+        ]
+
+    class CRYPT_BIT_BLOB(Structure):
+        _fields_ = [
+            ("cbData", DWORD),
+            ("pbData", POINTER(BYTE)),
+            ("cUnusedBits", DWORD),
+        ]
+
+    class CERT_EXTENSION(Structure):
+        _fields_ = [
+            ("pszObjId", LPSTR),
+            ("fCritical", BOOL),
+            ("Value", CRYPTOAPI_BLOB),
+        ]
+
+    class CERT_PUBLIC_KEY_INFO(Structure):
+        _fields_ = [
+            ("Algorithm", CRYPT_ALGORITHM_IDENTIFIER),
+            ("PublicKey", CRYPT_BIT_BLOB),
+        ]
+
+    class CERT_INFO(Structure):
+        _fields_ = [
+            ("dwVersion", DWORD),
+            ("SerialNumber", CRYPTOAPI_BLOB),
+            ("SignatureAlgorithm", CRYPT_ALGORITHM_IDENTIFIER),
+            ("Issuer", CRYPTOAPI_BLOB),
+            ("NotBefore", FILETIME),
+            ("NotAfter", FILETIME),
+            ("Subject", CRYPTOAPI_BLOB),
+            ("SubjectPublicKeyInfo", CERT_PUBLIC_KEY_INFO),
+            ("IssuerUniqueId", CRYPT_BIT_BLOB),
+            ("SubjectUniqueId", CRYPT_BIT_BLOB),
+            ("cExtension", DWORD),
+            ("rgExtension", POINTER(CERT_EXTENSION)),
+        ]
+
+    class CERT_CONTEXT(Structure):
+        _fields_ = [
+            ("dwCertEncodingType", DWORD),
+            ("pbCertEncoded", POINTER(BYTE)),
+            ("cbCertEncoded", DWORD),
+            ("pCertInfo", POINTER(CERT_INFO)),
+            ("hCertStore", LPVOID),
+        ]
+
+    class SYSTEMTIME(Structure):
+        _fields_ = [
+            ("wYear", WORD),
+            ("wMonth", WORD),
+            ("wDayOfWeek", WORD),
+            ("wDay", WORD),
+            ("wHour", WORD),
+            ("wMinute", WORD),
+            ("wSecond", WORD),
+            ("wMilliseconds", WORD),
+        ]
+
+    WINTRUST_ACTION_GENERIC_VERIFY_V2 = GUID(
+        0xAAC56B,
+        0xCD44,
+        0x11D0,
+        (0x8C, 0xC2, 0x0, 0xC0, 0x4F, 0xC2, 0x95, 0xEE),
+    )
+    wintrust = WINTRUST_DATA(
+        sizeof(WINTRUST_DATA),
+        0,
+        0,
+        2,
+        0,
+        1,
+        pointer(WINTRUST_FILE_INFO(sizeof(WINTRUST_FILE_INFO), argv[1], 0, 0)),
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+    verify_sign.restype = c_ulonglong
+    last_error.restype = c_ulonglong
+    status = verify_sign(
+        0, pointer(WINTRUST_ACTION_GENERIC_VERIFY_V2), pointer(wintrust)
+    )
+    if not status:
+        print(
+            "",
+            f'[+] The file "{argv[1]}" is signed and the signature was verified.',
+            "",
+        )
+    elif status == 0x800B0100:
+        err = last_error()
+        if err in (0x800B0100, 0x800B0003, 0x800B0001):
+            print_(f'\x1b[33m[-] The file "{argv[1]}" is not signed.\x1b[0m')
+        else:
+            print_(
+                f'\x1b[31m[!] An unknown error occurred trying to verify the signature of the "{argv[1]}" file.\x1b[0m'
+            )
+    elif status == 0x800B0111:
+        print_("\x1b[33m[-] The signature is present, but not trusted.\x1b[0m")
+    elif status == 0x80092026:
+        print_(
+            "\x1b[33m[-] CRYPT_E_SECURITY_SETTINGS - The hash representing the subject or the publisher wasn't explicitly trusted by the admin and admin policy has disabled user trust. No signature, publisher or timestamp errors.\x1b[0m"
+        )
+    else:
+        print_("\x1b[31m[!] Verify signature error is:", status, "\x1b[0m")
+    wintrust.dwStateAction = 2
+    status2 = verify_sign(
+        0, pointer(WINTRUST_ACTION_GENERIC_VERIFY_V2), pointer(wintrust)
+    )
+else:
+    print_(
+        "Cannot check the siganture on Linux or from URL or STDIN", file=stderr
+    )
+
+if status in (0, 0x800B0111):
+    dword_encoding = DWORD()
+    dword_contenttype = DWORD()
+    dword_formattype = DWORD()
+    store = LPVOID()
+    message = LPVOID()
+    dword_signerinfo = DWORD()
+
+    result = crypt_query(
+        1,
+        argv[1],
+        1024,
+        2,
+        0,
+        pointer(dword_encoding),
+        pointer(dword_contenttype),
+        pointer(dword_formattype),
+        pointer(store),
+        pointer(message),
+        0,
+    )
+
+    if not result:
+        print_("CryptQueryObject failed with", last_error(), file=stderr)
+
+    result = crypt_message(message, 6, 0, 0, pointer(dword_signerinfo))
+
+    if not result:
+        print_("CryptMsgGetParam failed with", last_error(), file=stderr)
+
+    alloc.restype = c_void_p
+    signerinfo = cast(
+        alloc(0x0040, dword_signerinfo), POINTER(CMSG_SIGNER_INFO)
+    )
+
+    if not signerinfo:
+        print_("Unable to allocate memory for Signer Info.", file=stderr)
+
+    result = crypt_message(
+        message, 6, 0, signerinfo, pointer(dword_signerinfo)
+    )
+
+    if not result:
+        print_("CryptMsgGetParam failed with", last_error(), file=stderr)
+
+    for i in range(signerinfo.contents.AuthAttrs.cAttr):
+        dword_data = DWORD()
+        if (
+            signerinfo.contents.AuthAttrs.rgAttr[i].pszObjId
+            == b"1.3.6.1.4.1.311.2.1.12"
+        ):
+            result = crypt_decode(
+                65537,
+                b"1.3.6.1.4.1.311.2.1.12",
+                signerinfo.contents.AuthAttrs.rgAttr[i].rgValue[0].pbData,
+                signerinfo.contents.AuthAttrs.rgAttr[i].rgValue[0].cbData,
+                0,
+                0,
+                pointer(dword_data),
+            )
+            if not result:
+                print_(
+                    "CryptDecodeObject failed with", last_error(), file=stderr
+                )
+
+            publisherinfo = cast(
+                alloc(0x0040, dword_data), POINTER(SPC_SP_OPUS_INFO)
+            )
+            if not publisherinfo:
+                print_(
+                    "Unable to allocate memory for Publisher Info.",
+                    file=stderr,
+                )
+
+            result = crypt_decode(
+                65537,
+                b"1.3.6.1.4.1.311.2.1.12",
+                signerinfo.contents.AuthAttrs.rgAttr[i].rgValue[0].pbData,
+                signerinfo.contents.AuthAttrs.rgAttr[i].rgValue[0].cbData,
+                0,
+                publisherinfo,
+                pointer(dword_data),
+            )
+
+            if not result:
+                print_(
+                    "CryptDecodeObject failed with", last_error(), file=stderr
+                )
+
+            print(
+                "",
+                "    - Program Name: "
+                + str(publisherinfo.contents.pwszProgramName),
+                "",
+            )
+
+            if publisherinfo.contents.pPublisherInfo:
+                print(
+                    "",
+                    "    - Publisher Link: "
+                    + publisherinfo.contents.pPublisherInfo.contents.pwszFile,
+                    "",
+                )
+
+            if publisherinfo.contents.pMoreInfo:
+                print(
+                    "",
+                    "    - MoreInfo Link:"
+                    + publisherinfo.contents.pMoreInfo.contents.pwszFile,
+                    "",
+                )
+            break
+
+    cert_info = CERT_INFO()
+    cert_info.Issuer = signerinfo.contents.Issuer
+    cert_info.SerialNumber = signerinfo.contents.SerialNumber
+
+    find_certificate.restype = POINTER(CERT_CONTEXT)
+    cert_context = find_certificate(
+        store, 65537, 0, 720896, pointer(cert_info), 0
+    )
+    if not cert_context:
+        print_(
+            "CertFindCertificateInStore failed with", last_error(), file=stderr
+        )
+
+    print("", "    - Signer Certificate:", "")
+    serial_number = cast(
+        cert_context.contents.pCertInfo.contents.SerialNumber.pbData,
+        POINTER(c_uint8),
+    )
+    print(
+        "",
+        "        - Serial Number: "
+        + " ".join(
+            f"{serial_number[i]:0>2x}"
+            for i in range(
+                cert_context.contents.pCertInfo.contents.SerialNumber.cbData
+                - 1,
+                -1,
+                -1,
+            )
+        ),
+        "",
+    )
+
+    dword_data = get_certificate_name(cert_context, 4, 1, 0, 0, 0)
+
+    if not dword_data:
+        print_("CertGetNameString failed.")
+
+    name = cast(alloc(0x0040, dword_data * sizeof(WCHAR)), LPSTR)
+    if not name:
+        print_("Unable to allocate memory for issuer name.")
+
+    dword_data = get_certificate_name(cert_context, 4, 1, 0, name, dword_data)
+    if not dword_data:
+        print_("CertGetNameString failed.")
+
+    print("", "        - Issuer Name: ".ljust(25) + name.value.decode(), "")
+
+    dword_data = get_certificate_name(cert_context, 4, 0, 0, 0, 0)
+
+    if not dword_data:
+        print_("CertGetNameString failed.")
+
+    name = cast(alloc(0x0040, dword_data * sizeof(WCHAR)), LPSTR)
+    if not name:
+        print_("Unable to allocate memory for issuer name.")
+
+    dword_data = get_certificate_name(cert_context, 4, 0, 0, name, dword_data)
+    if not dword_data:
+        print_("CertGetNameString failed.")
+
+    print("", "        - Subject Name: ".ljust(25) + name.value.decode(), "")
+
+    temp_filetime = FILETIME()
+    systemtime = SYSTEMTIME()
+    time_to_localtime(
+        pointer(cert_context.contents.pCertInfo.contents.NotBefore),
+        pointer(temp_filetime),
+    )
+    time_to_systemtime(pointer(temp_filetime), pointer(systemtime))
+
+    print(
+        "",
+        "        - Valid from: ".ljust(25)
+        + str(systemtime.wYear)
+        + "-"
+        + f"{systemtime.wMonth:0>2}"
+        + "-"
+        + f"{systemtime.wDay:0>2}"
+        + " "
+        + f"{systemtime.wHour:0>2}"
+        + ":"
+        + f"{systemtime.wMinute:0>2}"
+        + ":"
+        + f"{systemtime.wSecond:0>2}"
+        + "."
+        + str(systemtime.wMilliseconds),
+        "",
+    )
+
+    temp_filetime = FILETIME()
+    systemtime = SYSTEMTIME()
+    time_to_localtime(
+        pointer(cert_context.contents.pCertInfo.contents.NotAfter),
+        pointer(temp_filetime),
+    )
+    time_to_systemtime(pointer(temp_filetime), pointer(systemtime))
+
+    print(
+        "",
+        "        - Valid to: ".ljust(25)
+        + str(systemtime.wYear)
+        + "-"
+        + f"{systemtime.wMonth:0>2}"
+        + "-"
+        + f"{systemtime.wDay:0>2}"
+        + " "
+        + f"{systemtime.wHour:0>2}"
+        + ":"
+        + f"{systemtime.wMinute:0>2}"
+        + ":"
+        + f"{systemtime.wSecond:0>2}"
+        + "."
+        + str(systemtime.wMilliseconds),
+        "",
+    )
+
+    public_key = cast(
+        cert_context.contents.pCertInfo.contents.SubjectPublicKeyInfo.PublicKey.pbData,
+        POINTER(c_uint8),
+    )
+    print(
+        "",
+        "        - Public key: ".ljust(25)
+        + " ".join(
+            f"{serial_number[i]:0>2x}"
+            for i in range(
+                cert_context.contents.pCertInfo.contents.SubjectPublicKeyInfo.PublicKey.cbData
+                - 1,
+                -1,
+                -1,
+            )
+        ),
+        "",
+    )
+
+    for i in range(signerinfo.contents.UnauthAttrs.cAttr):
+        dword_data = DWORD()
+        if (
+            b"1.2.840.113549.1.9.6"
+            == signerinfo.contents.UnauthAttrs.rgAttr[i].pszObjId
+        ):
+            result = crypt_decode(
+                65537,
+                LPCSTR(500),
+                signerinfo.contents.UnauthAttrs.rgAttr[i].rgValue[0].pbData,
+                signerinfo.contents.UnauthAttrs.rgAttr[i].rgValue[0].cbData,
+                0,
+                0,
+                pointer(dword_data),
+            )
+            if not result:
+                print_(
+                    "CryptDecodeObject failed with", last_error(), file=stderr
+                )
+
+            count_signerinfo = cast(
+                alloc(0x0040, dword_data), POINTER(CMSG_SIGNER_INFO)
+            )
+            if not count_signerinfo:
+                print_("Unable to allocate memory for timestamp info.")
+
+            result = crypt_decode(
+                65537,
+                LPCSTR(500),
+                signerinfo.contents.UnauthAttrs.rgAttr[i].rgValue[0].pbData,
+                signerinfo.contents.UnauthAttrs.rgAttr[i].rgValue[0].cbData,
+                0,
+                count_signerinfo,
+                pointer(dword_data),
+            )
+            if not result:
+                print_(
+                    "CryptDecodeObject failed with", last_error(), file=stderr
+                )
+
+            cert_info.Issuer = count_signerinfo.contents.Issuer
+            cert_info.SerialNumber = count_signerinfo.contents.SerialNumber
+
+            cert_context = find_certificate(
+                store, 65537, 0, 720896, pointer(cert_info), 0
+            )
+
+            try:
+                cert_context.contents
+            except ValueError:
+                print_(
+                    "CertFindCertificateInStore failed with",
+                    last_error(),
+                    file=stderr,
+                )
+                continue
+
+            print("", "     - TimeStamp Certificate:", "")
+            serial_number = cast(
+                cert_context.contents.pCertInfo.contents.SerialNumber.pbData,
+                POINTER(c_uint8),
+            )
+            print(
+                "",
+                "        - Serial Number: ".ljust(25)
+                + " ".join(
+                    f"{serial_number[i]:0>2x}"
+                    for i in range(
+                        cert_context.contents.pCertInfo.contents.SerialNumber.cbData
+                        - 1,
+                        -1,
+                        -1,
+                    )
+                ),
+                "",
+            )
+
+            dword_data = get_certificate_name(cert_context, 4, 1, 0, 0, 0)
+
+            if not dword_data:
+                print_("CertGetNameString failed.")
+
+            name = cast(alloc(0x0040, dword_data * sizeof(WCHAR)), LPSTR)
+            if not name:
+                print_("Unable to allocate memory for issuer name.")
+
+            dword_data = get_certificate_name(
+                cert_context, 4, 1, 0, name, dword_data
+            )
+            if not dword_data:
+                print_("CertGetNameString failed.")
+
+            print(
+                "",
+                "        - Issuer Name: ".ljust(25) + name.value.decode(),
+                "",
+            )
+
+            dword_data = get_certificate_name(cert_context, 4, 0, 0, 0, 0)
+
+            if not dword_data:
+                print_("CertGetNameString failed.")
+
+            name = cast(alloc(0x0040, dword_data * sizeof(WCHAR)), LPSTR)
+            if not name:
+                print_("Unable to allocate memory for issuer name.")
+
+            dword_data = get_certificate_name(
+                cert_context, 4, 0, 0, name, dword_data
+            )
+            if not dword_data:
+                print_("CertGetNameString failed.")
+
+            print(
+                "",
+                "        - Subject Name: ".ljust(25) + name.value.decode(),
+                "",
+            )
+
+            temp_filetime = FILETIME()
+            systemtime = SYSTEMTIME()
+            time_to_localtime(
+                pointer(cert_context.contents.pCertInfo.contents.NotBefore),
+                pointer(temp_filetime),
+            )
+            time_to_systemtime(pointer(temp_filetime), pointer(systemtime))
+
+            print(
+                "",
+                "        - Valid from: ".ljust(25)
+                + str(systemtime.wYear)
+                + "-"
+                + f"{systemtime.wMonth:0>2}"
+                + "-"
+                + f"{systemtime.wDay:0>2}"
+                + " "
+                + f"{systemtime.wHour:0>2}"
+                + ":"
+                + f"{systemtime.wMinute:0>2}"
+                + ":"
+                + f"{systemtime.wSecond:0>2}"
+                + "."
+                + str(systemtime.wMilliseconds),
+                "",
+            )
+
+            temp_filetime = FILETIME()
+            systemtime = SYSTEMTIME()
+            time_to_localtime(
+                pointer(cert_context.contents.pCertInfo.contents.NotAfter),
+                pointer(temp_filetime),
+            )
+            time_to_systemtime(pointer(temp_filetime), pointer(systemtime))
+
+            print(
+                "",
+                "        - Valid to: ".ljust(25)
+                + str(systemtime.wYear)
+                + "-"
+                + f"{systemtime.wMonth:0>2}"
+                + "-"
+                + f"{systemtime.wDay:0>2}"
+                + " "
+                + f"{systemtime.wHour:0>2}"
+                + ":"
+                + f"{systemtime.wMinute:0>2}"
+                + ":"
+                + f"{systemtime.wSecond:0>2}"
+                + "."
+                + str(systemtime.wMilliseconds),
+                "",
+            )
+
+            public_key = cast(
+                cert_context.contents.pCertInfo.contents.SubjectPublicKeyInfo.PublicKey.pbData,
+                POINTER(c_uint8),
+            )
+            print(
+                "",
+                "        - Public key: ".ljust(25)
+                + " ".join(
+                    f"{serial_number[i]:0>2x}"
+                    for i in range(
+                        cert_context.contents.pCertInfo.contents.SubjectPublicKeyInfo.PublicKey.cbData
+                        - 1,
+                        -1,
+                        -1,
+                    )
+                ),
+                "",
+            )
+
+            for i in range(count_signerinfo.contents.AuthAttrs.cAttr):
+                if (
+                    count_signerinfo.contents.AuthAttrs.rgAttr[i].pszObjId
+                    == b"1.2.840.113549.1.9.5"
+                ):
+                    filetime = FILETIME()
+                    lfiletime = FILETIME()
+                    systemtime = SYSTEMTIME()
+                    dword_data = c_ulonglong(sizeof(filetime))
+                    result = crypt_decode(
+                        65537,
+                        b"1.2.840.113549.1.9.5",
+                        count_signerinfo.contents.AuthAttrs.rgAttr[i]
+                        .rgValue[0]
+                        .pbData,
+                        count_signerinfo.contents.AuthAttrs.rgAttr[i]
+                        .rgValue[0]
+                        .cbData,
+                        0,
+                        pointer(filetime),
+                        pointer(dword_data),
+                    )
+                    if not result:
+                        print_(
+                            "CryptDecodeObject failed with",
+                            last_error(),
+                            file=stderr,
+                        )
+
+                    time_to_localtime(pointer(filetime), pointer(lfiletime))
+                    time_to_systemtime(pointer(lfiletime), pointer(systemtime))
+
+                    print(
+                        "",
+                        "        - Date of TimeStamp: ".ljust(25)
+                        + str(systemtime.wYear)
+                        + "-"
+                        + f"{systemtime.wMonth:0>2}"
+                        + "-"
+                        + f"{systemtime.wDay:0>2}"
+                        + " "
+                        + f"{systemtime.wHour:0>2}"
+                        + ":"
+                        + f"{systemtime.wMinute:0>2}"
+                        + ":"
+                        + f"{systemtime.wSecond:0>2}"
+                        + "."
+                        + str(systemtime.wMilliseconds),
+                        "",
+                    )
+
+print_()
 
 sections = []
 filesize = len(data) if is_url else getsize(argv[1])
@@ -320,8 +1103,102 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
         "PE offset:",
         pe_address,
     )
-    address = int.from_bytes(data, "little")
-    data = file.read(address - 64)
+    file.seek(0)
+    data = file.read(pe_address)
+    end_position = data.find(b"Rich") + 4
+    if end_position != -1:
+        print("\n", f"{' Rich Headers ':*^139}", "\n", sep="")
+        checksum = data[end_position : end_position + 4]
+        checksum_value = int.from_bytes(checksum, "little")
+        print(
+            "Checksum".ljust(25),
+            f"{pe_address+end_position:0>8x}-{pe_address+end_position+4:0>8x}".ljust(
+                20
+            ),
+            hexlify(checksum).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in checksum).ljust(
+                20
+            ),
+            str(checksum_value),
+        )
+        marker = bytes(
+            reversed(
+                bytes(
+                    char ^ b"SnaD"[i]
+                    for i, char in enumerate(reversed(checksum))
+                )
+            )
+        )
+        vprint(
+            "Marker".ljust(25),
+            f"{pe_address+end_position:0>8x}-{pe_address+end_position+4:0>8x}".ljust(
+                20
+            ),
+            hexlify(marker).decode().ljust(40),
+            "".join(chr(x) if x in printable else "." for x in marker).ljust(
+                20
+            ),
+            "",
+        )
+        start_position = data.find(marker)
+        if start_position != -1:
+            ids = {
+                int.from_bytes(data[i : i + 4], "little")
+                ^ checksum_value: int.from_bytes(data[i + 4 : i + 8], "little")
+                ^ checksum_value
+                for i in range(start_position + 16, end_position - 4, 8)
+            }
+            calcul_checksum = start_position
+            for i, char in enumerate(data[:start_position]):
+                if 60 <= i < 64:
+                    continue
+                calcul_checksum += (char << (i % 32)) | (
+                    char >> (32 - (i % 32))
+                ) & 255
+                calcul_checksum &= 4294967295
+            for k, v in ids.items():
+                calcul_checksum += k << v % 32 | k >> (32 - (v % 32))
+                calcul_checksum &= 4294967295
+            print(
+                "Calcul checksum".ljust(25),
+                f"{pe_address+end_position:0>8x}-{pe_address+end_position+4:0>8x}".ljust(
+                    20
+                ),
+                hexlify(calcul_checksum.to_bytes(4)).decode().ljust(40),
+                "".join(
+                    chr(x) if x in printable else "."
+                    for x in calcul_checksum.to_bytes(4)
+                ).ljust(20),
+                "Valid checksum"
+                if calcul_checksum == checksum_value
+                else "Invalid checksum",
+            )
+            with open("rich_ids.txt", "wb") as rich_headers:
+                copyfileobj(
+                    urlopen(
+                        "https://raw.githubusercontent.com/dishather/richprint/master/comp_id.txt"
+                    ),
+                    rich_headers,
+                )
+            with open("rich_ids.txt") as rich_headers:
+                for id_, value in sorted(ids.items(), key=lambda x: x[1]):
+                    for line in rich_headers:
+                        if line.startswith(f"{id_:0>8x} "):
+                            print(
+                                "Rich header".ljust(25),
+                                f"{pe_address+start_position:0>8x}-{pe_address+end_position:0>8x}".ljust(
+                                    20
+                                ),
+                                hexlify(id_.to_bytes(4)).decode().ljust(40),
+                                "".join(
+                                    chr(x) if x in printable else "."
+                                    for x in id_.to_bytes(4)
+                                ).ljust(20),
+                                line[9:].strip(),
+                            )
+                    rich_headers.seek(0)
+    address = pe_address
+    file.seek(pe_address)
     print("\n", f"{' NT Headers ':*^139}", "\n", sep="")
     data = file.read(4)
     if data != b"PE\x00\x00":
@@ -667,13 +1544,14 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
         int.from_bytes(data, "little"),
     )
     data = file.read(4)
+    entry_point = int.from_bytes(data, "little")
     print(
         "AddressEntryPoint".ljust(25),
         f"{address+16:0>8x}-{address+20:0>8x}".ljust(20),
         hexlify(data).decode().ljust(40),
         "".join(chr(x) if x in printable else "." for x in data).ljust(20),
         "_start position:",
-        int.from_bytes(data, "little"),
+        entry_point,
     )
     data = file.read(4)
     print(
@@ -1152,6 +2030,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             virtual_address + virtual_size
         ):
             import_virtual_address = virtual_address
+            import_virtual_size = virtual_size
             import_data_position = int.from_bytes(data, "little")
         section_address = int.from_bytes(data, "little")
         print(
@@ -1162,10 +2041,11 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             "Data address:",
             int.from_bytes(data, "little"),
         )
-        if entropy_charts_import:
-            sections.append(
-                Section(label.split()[1], section_address, section_size)
-            )
+        section = Section(label.split()[1], section_address, section_size)
+        section.virtual_address = virtual_address
+        section.virtual_size = virtual_size
+        section.color = tuple(x / 255 for x in generate_color())
+        sections.append(section)
         data = file.read(4)
         vprint(
             label,
@@ -1522,6 +2402,18 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 ),
                 "Write permissions",
             )
+        if entry_point and virtual_address <= entry_point <= (
+            virtual_address + virtual_size
+        ):
+            print(
+                "Entry point section".ljust(25),
+                f"{address+36:0>8x}-{address+40:0>8x}".ljust(20),
+                hexlify(data).decode().ljust(40),
+                "".join(chr(x) if x in printable else "." for x in data).ljust(
+                    20
+                ),
+                label.split()[1],
+            )
         address += 40
         # saved_position = file.tell()
         # file.seek(data_position)
@@ -1765,7 +2657,9 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 "Manifest".ljust(25),
                 f"{start_string_position:0>8x}-{position:0>8x}".ljust(20),
                 "\b",
-                string.decode().strip(),
+                "".join(
+                    chr(x) for x in string if chr(x) in printable_
+                ).strip(),
             )
         elif last_object == 16:
             end_position = size + position
@@ -3165,22 +4059,25 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             )
             functions_names.append(function_name)
             names_adress += 4
-        position = (
-            ordinals_address - export_virtual_address + export_data_position
-        )
-        file.seek(position)
-        # for function_index in range(functions_number - names_number):
-        for function_index, name in enumerate(functions_names):
-            data = file.read(2)
-            print(
-                "Ordinal".ljust(25),
-                f"{position:0>8x}-{position+2:0>8x}".ljust(20),
-                hexlify(data).decode().ljust(40),
-                str(int.from_bytes(data, "little") + ordinal_base)
-                + " "
-                + name,
+        if ordinals_address:
+            position = (
+                ordinals_address
+                - export_virtual_address
+                + export_data_position
             )
-            position += 2
+            file.seek(position)
+            # for function_index in range(functions_number - names_number):
+            for function_index, name in enumerate(functions_names):
+                data = file.read(2)
+                print(
+                    "Ordinal".ljust(25),
+                    f"{position:0>8x}-{position+2:0>8x}".ljust(20),
+                    hexlify(data).decode().ljust(40),
+                    str(int.from_bytes(data, "little") + ordinal_base)
+                    + " "
+                    + name,
+                )
+                position += 2
     if exe_architecture == 64:
         address_length = 6
     else:
@@ -3243,10 +4140,23 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             )
             if name_address:
                 saved_position = file.tell()
+                if (
+                    import_virtual_address
+                    <= name_address
+                    <= (import_virtual_address + import_virtual_size)
+                ):
+                    data_position = import_data_position
+                    virtual_address = import_virtual_address
+                else:
+                    data_position, virtual_address = [
+                        (x.start_position, x.virtual_address)
+                        for x in sections
+                        if x.virtual_address
+                        <= name_address
+                        <= (x.virtual_size + x.virtual_address)
+                    ][0]
                 start_position = position = (
-                    name_address
-                    - import_virtual_address
-                    + import_data_position
+                    name_address - virtual_address + data_position
                 )
                 file.seek(position)
                 data = b""
@@ -3281,15 +4191,9 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
             position += 20
             saved_position = position
             if original_thunk:
-                position = (
-                    original_thunk
-                    - import_virtual_address
-                    + import_data_position
-                )
+                position = original_thunk - virtual_address + data_position
             elif thunk:
-                position = (
-                    thunk - import_virtual_address + import_data_position
-                )
+                position = thunk - virtual_address + data_position
             else:
                 continue
             file.seek(position)
@@ -3312,8 +4216,8 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 else:
                     position = (
                         int.from_bytes(data, "little")
-                        - import_virtual_address
-                        + import_data_position
+                        - virtual_address
+                        + data_position
                     )
                     if 0 >= position or position >= filesize:
                         position = file.tell()
@@ -3359,7 +4263,42 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 address = file.read(2)
             position = saved_position
 
+    overlay_position = max([x.start_position + x.size for x in sections])
+    file.seek(overlay_position)
+    try:
+        with open("overlay_" + basename(argv[1]), "wb") as overlay:
+            copyfileobj(file, overlay)
+    except PermissionError:
+        print("Permission Denied to extract overlay.", file=stderr)
     if entropy_charts_import:
+        axes = pyplot.gca()
+        axes.invert_yaxis()
+        axes.xaxis.set_visible(False)
+        axes.set_xlim(
+            0,
+            max(
+                max([x.virtual_address + x.virtual_size for x in sections]),
+                overlay_position,
+            ),
+        )
+        for section in sections:
+            axes.barh(
+                ("Memory", "File"),
+                (section.virtual_size, section.size),
+                left=(section.virtual_address, section.start_position),
+                color=section.color,
+                label=section.label,
+            )
+        axes.legend(
+            ncols=2,
+            bbox_to_anchor=(0, 1),
+            loc="lower left",
+            fontsize="small",
+        )
+        pyplot.title(
+            "Compare sections size in memory and sections size on disk"
+        )
+        pyplot.show()
         file.seek(0)
         charts_chunks_file_entropy(
             file, part_size=round(filesize / 100), sections=sections
