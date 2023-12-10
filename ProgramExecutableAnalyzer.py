@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -47,9 +47,10 @@ print(copyright)
 
 from sys import argv, stderr, stdin, exit, executable
 from string import printable as printable_
+from os.path import basename, isfile
 from urllib.request import urlopen
+from dataclasses import dataclass
 from shutil import copyfileobj
-from os.path import basename
 from binascii import hexlify
 from os.path import getsize
 from random import randint
@@ -57,6 +58,12 @@ from typing import Tuple
 from io import BytesIO
 from time import ctime
 from os import name
+
+@dataclass
+class Section:
+    label: str
+    start_position: int
+    size: int
 
 try:
     from EntropyAnalysis import charts_chunks_file_entropy, Section
@@ -1173,13 +1180,14 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 if calcul_checksum == checksum_value
                 else "Invalid checksum",
             )
-            with open("rich_ids.txt", "wb") as rich_headers:
-                copyfileobj(
-                    urlopen(
-                        "https://raw.githubusercontent.com/dishather/richprint/master/comp_id.txt"
-                    ),
-                    rich_headers,
-                )
+            if not isfile("rich_ids.txt"):
+                with open("rich_ids.txt", "wb") as rich_headers:
+                    copyfileobj(
+                        urlopen(
+                            "https://raw.githubusercontent.com/dishather/richprint/master/comp_id.txt"
+                        ),
+                        rich_headers,
+                    )
             with open("rich_ids.txt") as rich_headers:
                 for id_, value in sorted(ids.items(), key=lambda x: x[1]):
                     for line in rich_headers:
@@ -3831,14 +3839,17 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
     def read_resources_headers(main=False):
         global position, last_object
         data = file.read(4)
-        vprint(
+        time_ = file.read(4)
+        if any(time_):
+            return
+        print(
             "Characteristics".ljust(25),
             f"{position:0>8x}-{position+4:0>8x}".ljust(20),
             hexlify(data).decode().ljust(40),
             "".join(chr(x) if x in printable else "." for x in data).ljust(20),
             int.from_bytes(data, "little"),
         )
-        data = file.read(4)
+        data = time_
         print(
             "Timestamp".ljust(25),
             f"{position+4:0>8x}-{position+8:0>8x}".ljust(20),
@@ -4265,11 +4276,13 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
 
     overlay_position = max([x.start_position + x.size for x in sections])
     file.seek(overlay_position)
-    try:
-        with open("overlay_" + basename(argv[1]), "wb") as overlay:
-            copyfileobj(file, overlay)
-    except PermissionError:
-        print("Permission Denied to extract overlay.", file=stderr)
+    if file.read(1):
+        file.seek(overlay_position)
+        try:
+            with open("overlay_" + basename(argv[1]), "wb") as overlay:
+                copyfileobj(file, overlay)
+        except PermissionError:
+            print("Permission Denied to extract overlay.", file=stderr)
     if entropy_charts_import:
         axes = pyplot.gca()
         axes.invert_yaxis()
