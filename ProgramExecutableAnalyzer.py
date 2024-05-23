@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -123,6 +123,62 @@ elif "-c" not in argv:
 else:
     argv.remove("-c")
 
+
+if name == 'nt':
+    from ctypes.wintypes import DWORD
+    from ctypes import windll, byref, WinDLL
+
+    def active_virtual_terminal() -> bool:
+        """
+        This function active terminal colors on Windows.
+
+        return True on success and False on fail.
+
+        This function come from: https://raw.githubusercontent.com/mauricelambert/PythonToolsKit/main/PythonToolsKit/WindowsTerminal.py
+        doc: https://docs.microsoft.com/fr-fr/windows/console/console-virtual-terminal-sequences#code-try-1
+
+        >>> print("\\x1b[32mabc\\x1b[0m")
+        ←[32mabc←[0m
+        >>> active_virtual_terminal()
+        True
+        >>> print("\\x1b[32mabc\\x1b[0m")
+        abc
+        >>> active_virtual_terminal()
+        False
+        >>>
+        """
+
+        default_in_mode: DWORD = DWORD()
+        default_out_mode: DWORD = DWORD()
+
+        kernel32: WinDLL = windll.kernel32
+        _FuncPtr: type = kernel32._FuncPtr
+
+        GetStdHandle: _FuncPtr = kernel32.GetStdHandle
+        GetConsoleMode: _FuncPtr = kernel32.GetConsoleMode
+        SetConsoleMode: _FuncPtr = kernel32.SetConsoleMode
+
+        OUT_ENABLE_VIRTUAL_TERMINAL_PROCESSING: int = 0x0004
+        OUT_DISABLE_NEWLINE_AUTO_RETURN: int = 0x0008
+
+        STDOUT: int = GetStdHandle(-11)
+
+        if not GetConsoleMode(STDOUT, byref(default_out_mode)):
+            return False
+
+        new_out_mode = (
+            OUT_ENABLE_VIRTUAL_TERMINAL_PROCESSING
+            | OUT_DISABLE_NEWLINE_AUTO_RETURN
+        )
+
+        new_out_mode = DWORD(default_out_mode.value | new_out_mode)
+
+        if not SetConsoleMode(STDOUT, new_out_mode):
+            return False
+
+        return True
+
+    active_virtual_terminal()
 
 colors = []
 
@@ -431,6 +487,7 @@ else:
     print_(
         "Cannot check the siganture on Linux or from URL or STDIN", file=stderr
     )
+    status = None
 
 if status in (0, 0x800B0111):
     dword_encoding = DWORD()

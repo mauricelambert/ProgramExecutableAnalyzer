@@ -2,7 +2,6 @@ LICENSE.txt
 MANIFEST.in
 ProgramExecutableAnalyzer.py
 README.md
-rich_ids.txt
 setup.cfg
 setup.py
 ProgramExecutableAnalyzer.egg-info/PKG-INFO
