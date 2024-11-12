@@ -23,7 +23,7 @@
 This script analyzes MZ-PE (MS-DOS) executable file.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -1176,7 +1176,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
         checksum_value = int.from_bytes(checksum, "little")
         print(
             "Checksum".ljust(25),
-            f"{pe_address+end_position:0>8x}-{pe_address+end_position+4:0>8x}".ljust(
+            f"{end_position:0>8x}-{end_position+4:0>8x}".ljust(
                 20
             ),
             hexlify(checksum).decode().ljust(40),
@@ -1195,7 +1195,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
         )
         vprint(
             "Marker".ljust(25),
-            f"{pe_address+end_position:0>8x}-{pe_address+end_position+4:0>8x}".ljust(
+            f"{end_position:0>8x}-{end_position+4:0>8x}".ljust(
                 20
             ),
             hexlify(marker).decode().ljust(40),
@@ -1225,7 +1225,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                 calcul_checksum &= 4294967295
             print(
                 "Calcul checksum".ljust(25),
-                f"{pe_address+end_position:0>8x}-{pe_address+end_position+4:0>8x}".ljust(
+                f"{end_position:0>8x}-{end_position+4:0>8x}".ljust(
                     20
                 ),
                 hexlify(calcul_checksum.to_bytes(4)).decode().ljust(40),
@@ -1251,7 +1251,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                         if line.startswith(f"{id_:0>8x} "):
                             print(
                                 "Rich header".ljust(25),
-                                f"{pe_address+start_position:0>8x}-{pe_address+end_position:0>8x}".ljust(
+                                f"{start_position:0>8x}-{end_position:0>8x}".ljust(
                                     20
                                 ),
                                 hexlify(id_.to_bytes(4)).decode().ljust(40),
