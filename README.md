@@ -1,3 +1,5 @@
+![ProgramExecutableAnalyzer Logo](https://mauricelambert.github.io/info/python/security/ProgramExecutableAnalyzer_small.png "ProgramExecutableAnalyzer logo")
+
 # Program Executable Analyzer
 
 ## Description
