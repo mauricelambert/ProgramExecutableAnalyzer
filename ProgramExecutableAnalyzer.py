@@ -19,11 +19,205 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ##################
 
-"""
+r"""
 This script analyzes MZ-PE (MS-DOS) executable file.
+
+typedef struct _IMAGE_DOS_HEADER {
+    WORD e_magic;       // Magic number
+    WORD e_cblp;        // Bytes on last page of file
+    WORD e_cp;          // Pages in file
+    WORD e_crlc;        // Relocations
+    WORD e_cparhdr;     // Size of header in paragraphs
+    WORD e_minalloc;    // Minimum extra paragraphs needed
+    WORD e_maxalloc;    // Maximum extra paragraphs needed
+    WORD e_ss;          // Initial (relative) SS value
+    WORD e_sp;          // Initial SP value
+    WORD e_csum;        // Checksum
+    WORD e_ip;          // Initial IP value
+    WORD e_cs;          // Initial (relative) CS value
+    WORD e_lfarlc;      // File address of relocation table
+    WORD e_ovno;        // Overlay number
+    WORD e_res[4];      // Reserved words
+    WORD e_oemid;       // OEM identifier (for e_oeminfo)
+    WORD e_oeminfo;     // OEM information; e_oemid specific
+    WORD e_res2[10];    // Reserved words
+    DWORD e_lfanew;     // File address of new exe header
+} IMAGE_DOS_HEADER, *PIMAGE_DOS_HEADER;
+
+typedef struct _IMAGE_NT_HEADERS {
+    DWORD Signature;                  // "PE\0\0"
+    IMAGE_FILE_HEADER FileHeader;
+    IMAGE_OPTIONAL_HEADER OptionalHeader;
+} IMAGE_NT_HEADERS, *PIMAGE_NT_HEADERS;
+
+typedef struct _IMAGE_FILE_HEADER {
+    WORD Machine;                    // Target machine type
+    WORD NumberOfSections;           // Number of sections
+    DWORD TimeDateStamp;             // Timestamp
+    DWORD PointerToSymbolTable;      // Deprecated
+    DWORD NumberOfSymbols;           // Deprecated
+    WORD SizeOfOptionalHeader;       // Size of optional header
+    WORD Characteristics;            // File characteristics
+} IMAGE_FILE_HEADER, *PIMAGE_FILE_HEADER;
+
+typedef struct _IMAGE_OPTIONAL_HEADER {
+    WORD Magic;                      // Optional header magic: PE32 or PE32+
+    BYTE MajorLinkerVersion;         // Linker major version
+    BYTE MinorLinkerVersion;         // Linker minor version
+    DWORD SizeOfCode;                // Size of code (text) section
+    DWORD SizeOfInitializedData;     // Size of initialized data
+    DWORD SizeOfUninitializedData;   // Size of uninitialized data
+    DWORD AddressOfEntryPoint;       // RVA of entry point
+    DWORD BaseOfCode;                // RVA of base of code
+    ULONGLONG ImageBase;             // Preferred image base
+    DWORD SectionAlignment;          // Section alignment
+    DWORD FileAlignment;             // File alignment
+    WORD MajorOperatingSystemVersion; 
+    WORD MinorOperatingSystemVersion;
+    WORD MajorImageVersion;
+    WORD MinorImageVersion;
+    WORD MajorSubsystemVersion;
+    WORD MinorSubsystemVersion;
+    DWORD Win32VersionValue;
+    DWORD SizeOfImage;
+    DWORD SizeOfHeaders;
+    DWORD CheckSum;
+    WORD Subsystem;
+    WORD DllCharacteristics;
+    ULONGLONG SizeOfStackReserve;
+    ULONGLONG SizeOfStackCommit;
+    ULONGLONG SizeOfHeapReserve;
+    ULONGLONG SizeOfHeapCommit;
+    DWORD LoaderFlags;
+    DWORD NumberOfRvaAndSizes;
+    IMAGE_DATA_DIRECTORY DataDirectory[16];
+} IMAGE_OPTIONAL_HEADER, *PIMAGE_OPTIONAL_HEADER;
+
+typedef struct _IMAGE_SECTION_HEADER {
+    BYTE Name[8];                    // Section name
+    union {
+        DWORD PhysicalAddress;
+        DWORD VirtualSize;
+    } Misc;
+    DWORD VirtualAddress;            // Virtual address
+    DWORD SizeOfRawData;             // Size of raw data
+    DWORD PointerToRawData;          // File pointer to raw data
+    DWORD PointerToRelocations;
+    DWORD PointerToLinenumbers;
+    WORD NumberOfRelocations;
+    WORD NumberOfLinenumbers;
+    DWORD Characteristics;           // Section characteristics
+} IMAGE_SECTION_HEADER, *PIMAGE_SECTION_HEADER;
+
+typedef struct _IMAGE_RESOURCE_DIRECTORY {
+    DWORD Characteristics;
+    DWORD TimeDateStamp;
+    WORD  MajorVersion;
+    WORD  MinorVersion;
+    WORD  NumberOfNamedEntries;
+    WORD  NumberOfIdEntries;
+} IMAGE_RESOURCE_DIRECTORY, *PIMAGE_RESOURCE_DIRECTORY;
+
+typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY {
+    union {
+        struct {
+            DWORD NameOffset:31;
+            DWORD NameIsString:1;
+        } DUMMYSTRUCTNAME;
+        DWORD Name;
+        WORD Id;
+    } DUMMYUNIONNAME;
+    union {
+        DWORD OffsetToData;
+        struct {
+            DWORD OffsetToDirectory:31;
+            DWORD DataIsDirectory:1;
+        } DUMMYSTRUCTNAME2;
+    } DUMMYUNIONNAME2;
+} IMAGE_RESOURCE_DIRECTORY_ENTRY, *PIMAGE_RESOURCE_DIRECTORY_ENTRY;
+
+typedef struct _IMAGE_RESOURCE_DATA_ENTRY {
+    DWORD OffsetToData;
+    DWORD Size;
+    DWORD CodePage;
+    DWORD Reserved;
+} IMAGE_RESOURCE_DATA_ENTRY, *PIMAGE_RESOURCE_DATA_ENTRY;
+
+typedef struct _VS_FIXEDFILEINFO {
+    DWORD dwSignature;              // 0xFEEF04BD
+    DWORD dwStrucVersion;           // Structure version
+    DWORD dwFileVersionMS;          // Major and minor versions
+    DWORD dwFileVersionLS;          // Build and private versions
+    DWORD dwProductVersionMS;       // Product major and minor
+    DWORD dwProductVersionLS;       // Product build and private
+    DWORD dwFileFlagsMask;          // Mask of valid flags
+    DWORD dwFileFlags;              // Current flags
+    DWORD dwFileOS;                 // Target operating system
+    DWORD dwFileType;               // File type
+    DWORD dwFileSubtype;            // File subtype
+    DWORD dwFileDateMS;             // Creation date/time
+    DWORD dwFileDateLS;
+} VS_FIXEDFILEINFO, *PVS_FIXEDFILEINFO;
+
+typedef struct _String {
+    WORD wLength;                   // Length of the string
+    WORD wValueLength;              // Length of the value
+    WORD wType;                     // String type
+    WCHAR szKey[];                  // Key
+    WORD Padding[];
+    BYTE Value[];                   // Value
+} String, *PString;
+
+typedef struct _StringTable {
+    WORD wLength;
+    WORD wValueLength;
+    WORD wType;
+    WCHAR szKey[];                  // E.g., "040904b0"
+    WORD Padding[];
+    String Strings[];
+} StringTable, *PStringTable;
+
+typedef struct _StringFileInfo {
+    WORD wLength;
+    WORD wValueLength;
+    WORD wType;
+    WCHAR szKey[];                  // Always "StringFileInfo"
+    WORD Padding[];
+    StringTable Tables[];
+} StringFileInfo, *PStringFileInfo;
+
+typedef struct _Var {
+    WORD wLength;
+    WORD wValueLength;
+    WORD wType;
+    WCHAR szKey[];                  // E.g., "Translation"
+    WORD Padding[];
+    DWORD Value[];
+} Var, *PVar;
+
+typedef struct _VarFileInfo {
+    WORD wLength;
+    WORD wValueLength;
+    WORD wType;
+    WCHAR szKey[];                  // Always "VarFileInfo"
+    WORD Padding[];
+    Var Vars[];
+} VarFileInfo, *PVarFileInfo;
+
+typedef struct _VS_VERSIONINFO {
+    WORD wLength;
+    WORD wValueLength;
+    WORD wType;
+    WCHAR szKey[];                  // Always "VS_VERSION_INFO"
+    WORD Padding[];
+    VS_FIXEDFILEINFO Value;         // Version information
+    WORD Padding1[];
+    StringFileInfo StringFileInfo;
+    VarFileInfo VarFileInfo;
+} VS_VERSIONINFO, *PVS_VERSIONINFO;
 """
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __author__ = "Maurice Lambert"
 __author_email__ = "mauricelambert434@gmail.com"
 __maintainer__ = "Maurice Lambert"
@@ -3012,8 +3206,7 @@ with BytesIO(data) if is_url else open(argv[1], "rb") as file:
                     file=stderr,
                 )
                 position += 4
-            char = file.read(1)
-            while char == b"\0":
+            while file.tell() % 4 == 0:
                 char = file.read(1)
                 position += 1
             data_length = char + file.read(1)
